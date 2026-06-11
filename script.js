@@ -1024,7 +1024,7 @@ if (contactForm) {
 }
 
 /* ── Shared auth helpers (used by login + settings) ── */
-const _DEFAULT_HASH = 'ae38b741b4579f9709b230df45cb6c1f53e7a94cef836020501df7790316ef37';
+const _DEFAULT_HASH = 'aaa254b277568a6e72722703ec9eb2fc4549965bfddd3e70c3f90c50fa3bbe93';
 function getAdminHash() { return localStorage.getItem('lunas_pw_hash') || _DEFAULT_HASH; }
 async function hashPw(pw) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
@@ -2497,11 +2497,19 @@ function initServicesMgr() {
     const id   = fd.get('svcId');
     if (id && id.includes('||')) {
       const [oldCat, oldIdx] = id.split('||');
-      data[oldCat].splice(parseInt(oldIdx), 1);
-      if (!data[oldCat].length) delete data[oldCat];
+      const oldIdxNum = parseInt(oldIdx);
+      if (oldCat === cat) {
+        data[oldCat].splice(oldIdxNum, 1, svc);
+      } else {
+        data[oldCat].splice(oldIdxNum, 1);
+        if (!data[oldCat].length) delete data[oldCat];
+        if (!data[cat]) data[cat] = [];
+        data[cat].push(svc);
+      }
+    } else {
+      if (!data[cat]) data[cat] = [];
+      data[cat].push(svc);
     }
-    if (!data[cat]) data[cat] = [];
-    data[cat].push(svc);
     saveServices(data);
     modal.classList.remove('open');
     renderServices();

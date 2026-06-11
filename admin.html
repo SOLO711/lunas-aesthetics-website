@@ -17,13 +17,14 @@
   <div class="login-box">
     <div class="login-logo">Luna's <span>Admin</span></div>
     <p>Enter your password to access the dashboard.</p>
+    <p style="font-size:0.78rem;color:#9B5828;background:#FAF0E6;border-radius:6px;padding:0.5rem 0.75rem;margin-bottom:0.25rem;">First time on this device? Use <strong>Luna@Admin2026</strong>, then change it in Settings.</p>
     <form id="loginForm">
       <div class="form-group">
         <label>Password</label>
         <input type="password" id="adminPassword" placeholder="Enter password" required/>
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem;">Sign In</button>
-      <div class="login-err" id="loginErr">Incorrect password. Try again.</div>
+      <div class="login-err" id="loginErr">Incorrect password. Please try again.</div>
     </form>
   </div>
 </div>
@@ -478,6 +479,9 @@
       <div class="admin-card" style="margin-bottom:1.5rem;">
         <div class="admin-card-head"><h3>🔒 Change Password</h3></div>
         <div class="admin-card-body" style="padding:1.5rem;">
+          <div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:0.85rem 1rem;margin-bottom:1.25rem;font-size:0.84rem;color:#92400E;line-height:1.5;">
+            <strong>⚠️ Important — New Device Notice:</strong> Password changes save to this browser only. On a new phone, tablet, or browser, use the master password <strong>Luna@Admin2026</strong> to sign in, then change it here immediately.
+          </div>
           <form id="changePwForm" style="max-width:420px;">
             <div class="mfg" style="margin-bottom:1rem;">
               <label>Current Password</label>
