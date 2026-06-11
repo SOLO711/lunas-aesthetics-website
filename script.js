@@ -413,46 +413,34 @@ if (typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLI
 // 1. console.firebase.google.com → Create project → Build → Firestore Database
 // 2. Project Settings → General → Your apps → Add web app → copy config
 // 3. Firestore Rules: allow read, write: if true;  (for testing — tighten later)
-const FIREBASE_CFG = {
-  apiKey:            'AIzaSyBkakoNS6VyC-n-4voFbkukFA4z5f3Bszg',
-  authDomain:        'lunas-2305d.firebaseapp.com',
-  projectId:         'lunas-2305d',
-  storageBucket:     'lunas-2305d.firebasestorage.app',
-  messagingSenderId: '671088473380',
-  appId:             '1:671088473380:web:e387b67cc4feef64392fb1',
-};
+// ── Firestore REST API (no external SDK needed) ──
+const _FS_BASE = 'https://firestore.googleapis.com/v1/projects/lunas-2305d/databases/(default)/documents/site_data';
+const _FS_KEY  = 'AIzaSyBkakoNS6VyC-n-4voFbkukFA4z5f3Bszg';
 // ═══════════════════════════════════════════════════════════════════
 
-let _firestore = null;
-(function () {
-  if (!FIREBASE_CFG.apiKey) return;
-  try {
-    if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-      firebase.initializeApp(FIREBASE_CFG);
-      _firestore = firebase.firestore();
-    }
-  } catch (e) { console.warn('Firebase init skipped:', e.message); }
-})();
-
-/* ── Firestore sync helpers ── */
 let _syncReady = false;
 const _syncCallbacks = [];
 function onSyncReady(fn) { _syncReady ? fn() : _syncCallbacks.push(fn); }
 
 async function _fsGet(key) {
-  if (!_firestore) return null;
   try {
-    const doc = await _firestore.collection('site_data').doc(key).get();
-    return doc.exists ? doc.data().value : null;
+    const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}`);
+    if (!res.ok) return null;
+    const doc = await res.json();
+    const sv = doc.fields?.value?.stringValue;
+    return sv ? JSON.parse(sv) : null;
   } catch(e) { return null; }
 }
 async function _fsSet(key, val) {
-  if (!_firestore) return;
-  try { await _firestore.collection('site_data').doc(key).set({ value: val }); }
-  catch(e) { console.warn('[Firebase] write failed [' + key + ']:', e.message); }
+  try {
+    await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}&updateMask.fieldPaths=value`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { value: { stringValue: JSON.stringify(val) } } }),
+    });
+  } catch(e) { console.warn('[Firestore] write failed [' + key + ']:', e.message); }
 }
 (async function _syncOnLoad() {
-  if (!_firestore) { _syncReady = true; _syncCallbacks.forEach(fn => { try { fn(); } catch(e) {} }); return; }
   const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory'];
   const results = await Promise.allSettled(keys.map(k => _fsGet(k)));
   keys.forEach((k, i) => {
@@ -466,15 +454,14 @@ async function _fsSet(key, val) {
 })();
 
 async function getBookedSlots(dateStr) {
-  if (_firestore) {
-    try {
-      const snap = await _firestore.collection('bookings')
-        .where('date', '==', dateStr)
-        .where('status', '!=', 'cancelled')
-        .get();
-      return snap.docs.map(d => d.data().time);
-    } catch (e) { console.warn('Firestore read failed, using localStorage.'); }
-  }
+  try {
+    const allBookings = await _fsGet('bookings');
+    if (allBookings) {
+      return allBookings
+        .filter(b => b.date === dateStr && b.status !== 'cancelled')
+        .map(b => b.time);
+    }
+  } catch(e) {}
   return getDB('lunas_bookings')
     .filter(b => b.date === dateStr && b.status !== 'cancelled')
     .map(b => b.time);
@@ -484,10 +471,6 @@ async function saveBookingRecord(booking) {
   const all = getDB('lunas_bookings');
   all.push(booking);
   setDB('lunas_bookings', all);
-  if (_firestore) {
-    try { await _firestore.collection('bookings').doc(String(booking.id)).set(booking); }
-    catch (e) { console.warn('Firestore write failed:', e.message); }
-  }
 }
 
 function sendEmail(subject, fromName, fromPhone, fromEmail, body) {
@@ -2579,7 +2562,7 @@ function initServicesMgr() {
   document.getElementById('resetServicesBtn').onclick = () => {
     if (!confirm('Reset all services to defaults? This cannot be undone.')) return;
     localStorage.removeItem('lunas_services');
-    if (_firestore) _firestore.collection('site_data').doc('services').delete().catch(() => {});
+    fetch(`${_FS_BASE}/services?key=${_FS_KEY}`, { method: 'DELETE' }).catch(() => {});
     renderServices();
   };
 
