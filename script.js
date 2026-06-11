@@ -2289,6 +2289,69 @@ initCoursesMgr();
   onSyncReady(() => { renderList(); renderExtras(); });
 })();
 
+/* ── Services Public Page — Dynamic Price/Listing Sync ── */
+(function initPublicServicesPage() {
+  if (!document.querySelector('.service-cat-section')) return;
+
+  const CAT_MAP = {
+    'Spa Packages':           'packages',
+    'Pedicures':              'pedicures',
+    'Eyebrow Services':       'brows',
+    'Advanced Facials':       'facials',
+    'Waxing':                 'waxing',
+    'Laser Hair Removal':     'laser',
+    'Body Contouring':        'contouring',
+    'Intimate Brightening':   'brightening',
+    'Weight Loss & Lipo Shots': 'lipo',
+  };
+
+  function applyServices() {
+    const raw = localStorage.getItem('lunas_services');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+
+    Object.entries(CAT_MAP).forEach(([catName, slug]) => {
+      const section = document.querySelector(`.service-cat-section[data-cat="${slug}"]`);
+      if (!section) return;
+      const grid = section.querySelector('.pricing-grid');
+      if (!grid) return;
+      const adminSvcs = data[catName];
+      if (!adminSvcs || !adminSvcs.length) return;
+
+      const existingItems = Array.from(grid.querySelectorAll('.pricing-item'));
+      const existingNames = existingItems.map(el => el.querySelector('.pricing-name')?.textContent.trim());
+
+      existingItems.forEach(item => {
+        const nameEl = item.querySelector('.pricing-name');
+        if (!nameEl) return;
+        const match = adminSvcs.find(s => s.name === nameEl.textContent.trim());
+        if (match) {
+          const priceEl = item.querySelector('.pricing-price');
+          if (priceEl) {
+            const badge = priceEl.querySelector('small');
+            priceEl.textContent = match.price || '';
+            if (badge) priceEl.appendChild(badge);
+          }
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+
+      adminSvcs.forEach(svc => {
+        if (existingNames.includes(svc.name)) return;
+        const div = document.createElement('div');
+        div.className = 'pricing-item';
+        div.innerHTML = `<div><div class="pricing-name">${svc.name}</div><div class="pricing-desc">${svc.duration || ''}</div></div><div class="pricing-price">${svc.price || ''}</div>`;
+        grid.appendChild(div);
+      });
+    });
+  }
+
+  applyServices();
+  onSyncReady(applyServices);
+})();
+
 /* ── Services Page — Quick Book Sheet ── */
 (function () {
   if (!document.querySelector('.pricing-item')) return;
