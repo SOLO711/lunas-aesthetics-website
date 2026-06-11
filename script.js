@@ -1194,7 +1194,7 @@ function initAdmin() {
     });
   });
 
-  if (authed) loadAdminData();
+  if (authed) setTimeout(loadAdminData, 0);
 }
 
 function getDB(key) { return JSON.parse(localStorage.getItem(key) || '[]'); }
