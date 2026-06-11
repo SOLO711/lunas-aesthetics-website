@@ -17,7 +17,6 @@
   <div class="login-box">
     <div class="login-logo">Luna's <span>Admin</span></div>
     <p>Enter your password to access the dashboard.</p>
-    <p style="font-size:0.78rem;color:#9B5828;background:#FAF0E6;border-radius:6px;padding:0.5rem 0.75rem;margin-bottom:0.25rem;">First time on this device? Use <strong>Luna@Admin2026</strong>, then change it in Settings.</p>
     <form id="loginForm">
       <div class="form-group">
         <label>Password</label>
@@ -474,32 +473,6 @@
     <!-- ── Settings Panel ── -->
     <div class="admin-panel" id="panel-settings">
       <h2 class="admin-panel-title">⚙️ Settings</h2>
-
-      <!-- Password Change -->
-      <div class="admin-card" style="margin-bottom:1.5rem;">
-        <div class="admin-card-head"><h3>🔒 Change Password</h3></div>
-        <div class="admin-card-body" style="padding:1.5rem;">
-          <div style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:0.85rem 1rem;margin-bottom:1.25rem;font-size:0.84rem;color:#92400E;line-height:1.5;">
-            <strong>⚠️ Important — New Device Notice:</strong> Password changes save to this browser only. On a new phone, tablet, or browser, use the master password <strong>Luna@Admin2026</strong> to sign in, then change it here immediately.
-          </div>
-          <form id="changePwForm" style="max-width:420px;">
-            <div class="mfg" style="margin-bottom:1rem;">
-              <label>Current Password</label>
-              <input type="password" id="cpwCurrent" placeholder="Enter current password" required/>
-            </div>
-            <div class="mfg" style="margin-bottom:1rem;">
-              <label>New Password <span style="font-weight:400;font-size:0.75rem;color:var(--text-light);">(min 8 characters)</span></label>
-              <input type="password" id="cpwNew" placeholder="New password" required minlength="8"/>
-            </div>
-            <div class="mfg" style="margin-bottom:1.25rem;">
-              <label>Confirm New Password</label>
-              <input type="password" id="cpwConfirm" placeholder="Repeat new password" required minlength="8"/>
-            </div>
-            <div id="cpwMsg" style="display:none;margin-bottom:1rem;padding:0.75rem 1rem;border-radius:6px;font-size:0.85rem;font-weight:600;"></div>
-            <button type="submit" class="btn-admin btn-admin-pink">Update Password</button>
-          </form>
-        </div>
-      </div>
 
       <!-- Data Backup & Restore -->
       <div class="admin-card">

@@ -1024,7 +1024,7 @@ if (contactForm) {
 }
 
 /* ── Shared auth helpers (used by login + settings) ── */
-const _DEFAULT_HASH = 'aaa254b277568a6e72722703ec9eb2fc4549965bfddd3e70c3f90c50fa3bbe93';
+const _DEFAULT_HASH = 'afc27beb96af151ae8b94c016c882a583016eb42c116276bbbb03b7bb55e7cde';
 function getAdminHash() { return localStorage.getItem('lunas_pw_hash') || _DEFAULT_HASH; }
 async function hashPw(pw) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
