@@ -2701,6 +2701,7 @@ function initServicesMgr() {
   };
 
   renderServices();
+  onSyncReady(renderServices);
 }
 
 /* ── Courses Manager (Admin) ── */
@@ -2830,6 +2831,7 @@ function initCoursesMgr() {
   };
 
   renderCourses();
+  onSyncReady(renderCourses);
 }
 
 /* ── Consent Modal ── */
