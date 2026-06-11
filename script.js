@@ -414,9 +414,12 @@ if (typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLI
 // 2. Project Settings → General → Your apps → Add web app → copy config
 // 3. Firestore Rules: allow read, write: if true;  (for testing — tighten later)
 const FIREBASE_CFG = {
-  apiKey:    '',
-  authDomain:'',
-  projectId: '',
+  apiKey:            'AIzaSyBkakoNS6VyC-n-4voFbkukFA4z5f3Bszg',
+  authDomain:        'lunas-2305d.firebaseapp.com',
+  projectId:         'lunas-2305d',
+  storageBucket:     'lunas-2305d.firebasestorage.app',
+  messagingSenderId: '671088473380',
+  appId:             '1:671088473380:web:e387b67cc4feef64392fb1',
 };
 // ═══════════════════════════════════════════════════════════════════
 
@@ -429,6 +432,37 @@ let _firestore = null;
       _firestore = firebase.firestore();
     }
   } catch (e) { console.warn('Firebase init skipped:', e.message); }
+})();
+
+/* ── Firestore sync helpers ── */
+let _syncReady = false;
+const _syncCallbacks = [];
+function onSyncReady(fn) { _syncReady ? fn() : _syncCallbacks.push(fn); }
+
+async function _fsGet(key) {
+  if (!_firestore) return null;
+  try {
+    const doc = await _firestore.collection('site_data').doc(key).get();
+    return doc.exists ? doc.data().value : null;
+  } catch(e) { return null; }
+}
+async function _fsSet(key, val) {
+  if (!_firestore) return;
+  try { await _firestore.collection('site_data').doc(key).set({ value: val }); }
+  catch(e) { console.warn('[Firebase] write failed [' + key + ']:', e.message); }
+}
+(async function _syncOnLoad() {
+  if (!_firestore) { _syncReady = true; _syncCallbacks.forEach(fn => { try { fn(); } catch(e) {} }); return; }
+  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory'];
+  const results = await Promise.allSettled(keys.map(k => _fsGet(k)));
+  keys.forEach((k, i) => {
+    const r = results[i];
+    if (r.status === 'fulfilled' && r.value !== null) {
+      localStorage.setItem('lunas_' + k, JSON.stringify(r.value));
+    }
+  });
+  _syncReady = true;
+  _syncCallbacks.forEach(fn => { try { fn(); } catch(e) {} });
 })();
 
 async function getBookedSlots(dateStr) {
@@ -855,6 +889,22 @@ function initBooking() {
 
     }); // end showConsentModal callback
   }); // end form submit
+
+  // After Firestore sync, refresh the services category dropdown with latest data
+  onSyncReady(() => {
+    if (!catSelect) return;
+    const freshData = JSON.parse(localStorage.getItem('lunas_services') || 'null');
+    if (!freshData) return;
+    const prevCat = catSelect.value;
+    catSelect.innerHTML = '<option value="">Select a category</option>';
+    Object.keys(freshData).forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat; opt.textContent = cat;
+      catSelect.appendChild(opt);
+    });
+    catSelect.value = prevCat;
+    if (prevCat) catSelect.dispatchEvent(new Event('change'));
+  });
 }
 initBooking();
 
@@ -1162,17 +1212,26 @@ function initAdmin() {
 }
 
 function getDB(key) { return JSON.parse(localStorage.getItem(key) || '[]'); }
-function setDB(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+function setDB(key, val) {
+  localStorage.setItem(key, JSON.stringify(val));
+  const fsKey = key.replace('lunas_', '');
+  if (['bookings', 'clients', 'inventory'].includes(fsKey)) _fsSet(fsKey, val);
+}
 
 function loadAdminData() {
-  renderDashboard();
-  renderBookingsTable();
-  renderClientsTable();
-  renderInventoryTable();
-  renderCalendar();
-  renderSpecials();
+  const _renderAll = () => {
+    renderDashboard();
+    renderBookingsTable();
+    renderClientsTable();
+    renderInventoryTable();
+    renderCalendar();
+    renderSpecials();
+  };
+  _renderAll();
   initSettings();
-  document.getElementById('exportCsvBtn')?.addEventListener('click', exportBookingsCSV);
+  const expBtn = document.getElementById('exportCsvBtn');
+  if (expBtn) expBtn.onclick = exportBookingsCSV;
+  onSyncReady(_renderAll);
 }
 
 /* ── Admin Calendar ── */
@@ -1933,7 +1992,7 @@ initPageTransitions();
 const SPECIALS_KEY = 'lunas_specials';
 
 function getSpecials() { return JSON.parse(localStorage.getItem(SPECIALS_KEY) || '[]'); }
-function saveSpecials(d) { localStorage.setItem(SPECIALS_KEY, JSON.stringify(d)); }
+function saveSpecials(d) { localStorage.setItem(SPECIALS_KEY, JSON.stringify(d)); _fsSet('specials', d); }
 
 function specialStatus(sp) {
   if (!sp.active) return 'inactive';
@@ -2133,6 +2192,7 @@ function initSpecials() {
 
   renderSpecials();
   renderSpecialsBanner();
+  onSyncReady(() => renderSpecialsBanner());
 }
 
 /* ── Public-facing specials banner ── */
@@ -2406,6 +2466,7 @@ function initServicesMgr() {
   }
   function saveServices(data) {
     localStorage.setItem('lunas_services', JSON.stringify(data));
+    _fsSet('services', data);
   }
 
   const tbody = document.getElementById('servicesBody');
@@ -2518,6 +2579,7 @@ function initServicesMgr() {
   document.getElementById('resetServicesBtn').onclick = () => {
     if (!confirm('Reset all services to defaults? This cannot be undone.')) return;
     localStorage.removeItem('lunas_services');
+    if (_firestore) _firestore.collection('site_data').doc('services').delete().catch(() => {});
     renderServices();
   };
 
@@ -2547,6 +2609,7 @@ function initCoursesMgr() {
   }
   function saveCourses(data) {
     localStorage.setItem('lunas_courses', JSON.stringify(data));
+    _fsSet('courses', data);
   }
 
   const tbody  = document.getElementById('coursesBody');
