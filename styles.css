@@ -201,15 +201,24 @@ p { margin-bottom: 1rem; }
 /* Remove old gold underline */
 .nav-links a::after { display: none !important; }
 
-.nav-links a:hover,
-.nav-links a.active {
+/* Hover: dark fill animation */
+.nav-links a:hover {
   color: var(--white);
   background-size: 100% 100%;
 }
-.nav-links a:hover::before,
-.nav-links a.active::before {
+.nav-links a:hover::before {
   transform: scaleY(1);
   opacity: 1;
+}
+
+/* Active (current page): gold text + bottom border, no black fill */
+.nav-links a.active {
+  color: var(--gold-dark);
+  background-size: 100% 0%;
+  border-bottom: 2px solid var(--gold-dark);
+}
+.nav-links a.active::before {
+  opacity: 0;
 }
 
 /* Book Now CTA — keep pill style, suppress the border animation */
