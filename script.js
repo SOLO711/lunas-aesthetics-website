@@ -14,7 +14,7 @@
 
 /* ── Launch Week Promo ── */
 const LAUNCH_DATE = '2026-06-11';
-const LAUNCH_END  = '2026-07-31';
+const LAUNCH_END  = '2026-06-19';
 
 (function initLaunchPromo() {
   const today = new Date().toISOString().split('T')[0];
