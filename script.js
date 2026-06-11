@@ -224,13 +224,6 @@ const svcData = {
     entails: ['Welcome champagne & refreshments', 'Micro-needling or HydraFacial', 'Full body massage (60 min)', 'Luxury pedicure & manicure', 'Lash or brow treatment of choice', 'Hollywood wax', 'Light spa lunch included', 'Personalised gift bag'],
     benefits: ['Complete luxury from start to finish', 'Visible skin transformation', 'The ultimate self-care day', 'Unforgettable gifting experience'],
   },
-  'ultimate-beauty': {
-    icon: '🌺', category: 'Luxury Spa Packages', name: 'Ultimate Beauty Package',
-    price: 'TTD 550', duration: '2 hrs',
-    desc: 'A popular two-hour package that covers the most-requested treatments in one efficient booking. Designed for the client who wants real results without spending a full day at the spa.',
-    entails: ['Signature facial (brightening or anti-aging)', 'Classic pedicure with scrub & massage', 'Underarm or bikini wax', 'Brow wax & shape'],
-    benefits: ['Multiple treatments, one appointment', 'Glowing skin & groomed brows', 'Smooth skin from wax', 'Great value package'],
-  },
   'double-birthday': {
     icon: '🌺', category: 'Luxury Spa Packages', name: 'Double Birthday Package',
     price: 'TTD 1,000', duration: '4h 10 min',
@@ -534,7 +527,6 @@ function initBooking() {
   // Load from localStorage if admin has customised, otherwise use defaults
   const services = JSON.parse(localStorage.getItem('lunas_services') || 'null') || {
     'Spa Packages': [
-      { name: 'The Ultimate Beauty Package', price: 'TTD 550', duration: '2 hrs' },
       { name: 'The Goddess Glow Package', price: 'TTD 900', duration: '3h 30m' },
       { name: 'The It Girl Package', price: 'TTD 600', duration: '2h 5m' },
       { name: 'Lunas Platinum Experience', price: 'TTD 1,500', duration: '6 hrs' },
@@ -2496,7 +2488,6 @@ function initServicesMgr() {
 
   const DEFAULT_SERVICES = {
     'Spa Packages': [
-      { name: 'The Ultimate Beauty Package', price: 'TTD 550', duration: '2 hrs' },
       { name: 'The Goddess Glow Package', price: 'TTD 900', duration: '3h 30m' },
       { name: 'The It Girl Package', price: 'TTD 600', duration: '2h 5m' },
       { name: 'Lunas Platinum Experience', price: 'TTD 1,500', duration: '6 hrs' },
