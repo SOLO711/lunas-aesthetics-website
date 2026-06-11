@@ -12,6 +12,73 @@
   path.style.animation = `htDraw 2.5s cubic-bezier(0.43,0.13,0.23,0.96) 0.7s forwards`;
 })();
 
+/* ── Launch Week Promo ── */
+const LAUNCH_DATE = '2026-06-11';
+const LAUNCH_END  = '2026-06-18';
+
+(function initLaunchPromo() {
+  const today = new Date().toISOString().split('T')[0];
+  if (today < LAUNCH_DATE || today > LAUNCH_END) return;
+
+  const msLeft   = new Date(LAUNCH_END + 'T23:59:59') - Date.now();
+  const daysLeft = Math.max(0, Math.ceil(msLeft / 86400000));
+
+  /* Sitewide announcement bar */
+  if (!sessionStorage.getItem('lunas_launch_dismissed')) {
+    const bar = document.createElement('div');
+    bar.id        = 'launchBar';
+    bar.className = 'launch-bar';
+    bar.innerHTML = `<div class="launch-bar-inner">
+      <span class="launch-bar-icon" aria-hidden="true">🎉</span>
+      <span class="launch-bar-text"><strong>Grand Opening Special:</strong> 10% OFF all services this week<em class="launch-bar-excl"> — waxing excluded</em></span>
+      ${daysLeft > 0 ? `<span class="launch-bar-pill">${daysLeft} day${daysLeft !== 1 ? 's' : ''} left</span>` : ''}
+      <a href="book.html" class="launch-bar-cta">Book Now</a>
+      <button class="launch-bar-close" aria-label="Dismiss promotion">×</button>
+    </div>`;
+    document.body.insertBefore(bar, document.body.firstChild);
+
+    const navEl = document.querySelector('.navbar');
+    if (navEl) navEl.style.top = bar.offsetHeight + 'px';
+
+    bar.querySelector('.launch-bar-close').addEventListener('click', () => {
+      const h = bar.offsetHeight;
+      Object.assign(bar.style, { height: h + 'px', overflow: 'hidden', transition: 'height 0.25s ease, opacity 0.25s ease' });
+      requestAnimationFrame(() => { bar.style.height = '0'; bar.style.opacity = '0'; });
+      setTimeout(() => { bar.remove(); if (navEl) navEl.style.top = ''; }, 270);
+      sessionStorage.setItem('lunas_launch_dismissed', '1');
+    });
+  }
+
+  /* Front page promo section */
+  const promoSec = document.getElementById('launchPromoSection');
+  if (promoSec) {
+    promoSec.style.display = '';
+
+    const validEl = document.getElementById('lpsValidUntil');
+    if (validEl) {
+      const [y, mo, d] = LAUNCH_END.split('-');
+      const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      validEl.textContent = `Valid until ${mn[+mo - 1]} ${+d}, ${y}`;
+    }
+
+    function updateLpsCountdown() {
+      const el = document.getElementById('lpsCountdown');
+      if (!el) return;
+      const diff = new Date(LAUNCH_END + 'T23:59:59') - Date.now();
+      if (diff <= 0) { promoSec.style.display = 'none'; return; }
+      const d  = Math.floor(diff / 86400000);
+      const h  = Math.floor((diff % 86400000) / 3600000);
+      const m  = Math.floor((diff % 3600000) / 60000);
+      el.innerHTML =
+        `<div class="lps-cd-unit"><span class="lps-cd-num">${d}</span><span class="lps-cd-label">Day${d !== 1 ? 's' : ''}</span></div>` +
+        `<div class="lps-cd-unit"><span class="lps-cd-num">${String(h).padStart(2,'0')}</span><span class="lps-cd-label">Hours</span></div>` +
+        `<div class="lps-cd-unit"><span class="lps-cd-num">${String(m).padStart(2,'0')}</span><span class="lps-cd-label">Mins</span></div>`;
+    }
+    updateLpsCountdown();
+    setInterval(updateLpsCountdown, 60000);
+  }
+})();
+
 /* ── Scroll lock ── */
 // body.overflow:hidden stops scroll in Chrome/Firefox without touching the fixed-positioning
 // containing block. iOS Safari needs touchmove preventDefault to stop rubber-band scroll.
@@ -1969,7 +2036,21 @@ initPageTransitions();
 /* ── Specials & Discounts ── */
 const SPECIALS_KEY = 'lunas_specials';
 
-function getSpecials() { return JSON.parse(localStorage.getItem(SPECIALS_KEY) || '[]'); }
+function getSpecials() {
+  const raw = localStorage.getItem(SPECIALS_KEY);
+  if (raw !== null) return JSON.parse(raw);
+  const today = new Date().toISOString().split('T')[0];
+  if (today >= LAUNCH_DATE && today <= LAUNCH_END) {
+    return [{
+      id: 'launch_2026', name: 'Grand Opening — 10% Off',
+      desc: 'Celebrate our launch! 10% off all services. Excludes all waxing services.',
+      type: 'percent', value: 10, applies: 'All Services excl. Waxing',
+      startDate: LAUNCH_DATE, endDate: LAUNCH_END,
+      colour: 'gold', active: true, createdAt: 1749600000000,
+    }];
+  }
+  return [];
+}
 function saveSpecials(d) { localStorage.setItem(SPECIALS_KEY, JSON.stringify(d)); _fsSet('specials', d); }
 
 function specialStatus(sp) {
@@ -2178,7 +2259,14 @@ function renderSpecialsBanner() {
   const banner = document.getElementById('specialsBanner');
   if (!banner) return;
 
-  const live = getSpecials().filter(s => specialStatus(s) === 'active');
+  let live = getSpecials().filter(s => specialStatus(s) === 'active');
+  const _bToday = new Date().toISOString().split('T')[0];
+  if (!live.length && _bToday >= LAUNCH_DATE && _bToday <= LAUNCH_END) {
+    live = [{ id:'launch_2026', name:'Grand Opening — 10% Off',
+      desc:'Celebrate our launch! 10% off all services. Excludes all waxing services.',
+      type:'percent', value:10, applies:'All Services excl. Waxing',
+      startDate:LAUNCH_DATE, endDate:LAUNCH_END, colour:'gold', active:true }];
+  }
   if (!live.length) { banner.classList.remove('has-specials'); return; }
   banner.classList.add('has-specials');
 
