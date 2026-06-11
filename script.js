@@ -774,6 +774,25 @@ function initBooking() {
     summary.querySelector('#sumDuration').textContent = svc.duration;
     summary.querySelector('#sumDate').textContent = new Date(date + 'T00:00').toLocaleDateString('en-TT', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
     summary.querySelector('#sumTime').textContent = time;
+
+    // July promo discount
+    const _td = new Date().toISOString().split('T')[0];
+    const _isJuly = date.startsWith('2026-07');
+    const _promoOn = _td >= LAUNCH_DATE && _td <= LAUNCH_END;
+    const _isWax = catSelect?.value === 'Waxing';
+    const _discRow = document.getElementById('sumDiscountRow');
+    const _totRow = document.getElementById('sumTotalRow');
+    const _pm = svc.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
+    if (_isJuly && _promoOn && !_isWax && _pm) {
+      const orig = parseFloat(_pm[0]);
+      const disc = Math.round(orig * 0.1);
+      const prefix = svc.price.trim().toLowerCase().startsWith('from') ? 'from ' : '';
+      if (_discRow) { _discRow.style.display = ''; document.getElementById('sumDiscount').textContent = `−TTD ${disc}`; }
+      if (_totRow)  { _totRow.style.display  = ''; document.getElementById('sumTotal').textContent  = `${prefix}TTD ${(orig - disc).toLocaleString()}`; }
+    } else {
+      if (_discRow) _discRow.style.display = 'none';
+      if (_totRow)  _totRow.style.display  = 'none';
+    }
   }
 
   svcSelect?.addEventListener('change', updateSummary);
@@ -804,6 +823,15 @@ function initBooking() {
     const svc = JSON.parse(svcRaw);
     const dateStr = fd.get('bookDate');
     const timeStr = selectedTimeInput.value;
+
+    // July promo discount calculation
+    const _subToday = new Date().toISOString().split('T')[0];
+    const _julyPromo = dateStr.startsWith('2026-07') && _subToday >= LAUNCH_DATE && _subToday <= LAUNCH_END && catSelect.value !== 'Waxing';
+    let _discAmt = null, _discTotal = null;
+    if (_julyPromo) {
+      const _m = svc.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
+      if (_m) { const _o = parseFloat(_m[0]); _discAmt = Math.round(_o * 0.1); _discTotal = _o - _discAmt; }
+    }
 
     // Re-check slot availability before confirming
     const booked = await getBookedSlots(dateStr);
@@ -838,6 +866,8 @@ function initBooking() {
       email: fd.get('clientEmail') || '',
       service: svc.name,
       price: svc.price,
+      discountedPrice: _discAmt ? `TTD ${_discTotal.toLocaleString()}` : null,
+      promoApplied: _discAmt ? 'Grand Opening — 10% Off July' : null,
       date: dateStr,
       time: timeStr,
       notes: fd.get('notes') || '',
@@ -879,7 +909,7 @@ function initBooking() {
       `Phone:    ${booking.phone}\n` +
       `Email:    ${booking.email || 'Not provided'}\n\n` +
       `Service:  ${booking.service}\n` +
-      `Price:    ${booking.price}\n` +
+      `Price:    ${booking.price}${booking.discountedPrice ? `\nDiscount: −TTD ${_discAmt} (Grand Opening 10% Off July)\nTotal:    ${booking.discountedPrice}` : ''}\n` +
       `Date:     ${formattedDate}\n` +
       `Time:     ${booking.time}\n\n` +
       `Notes:    ${booking.notes || 'None'}`;

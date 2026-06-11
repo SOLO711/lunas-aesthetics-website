@@ -1303,6 +1303,11 @@ p { margin-bottom: 1rem; }
 .summary-row { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 0.4rem; }
 .summary-row span:first-child { color: var(--text-light); }
 .summary-row span:last-child { font-weight: 700; }
+.summary-row--discount span:first-child { color: #2a7a2a; }
+.summary-row--discount span:last-child { color: #2a7a2a; }
+.summary-row--total { border-top: 1px solid var(--border); padding-top: 0.45rem; margin-top: 0.25rem; font-size: 0.95rem; }
+.summary-row--total span:first-child { color: var(--pink-dark); font-weight: 700; }
+.summary-row--total span:last-child { color: var(--pink-dark); font-size: 1.05rem; }
 .booking-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 @media (max-width: 900px) { .booking-layout { grid-template-columns: 1fr; } }
 
