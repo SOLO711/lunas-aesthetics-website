@@ -14,7 +14,7 @@
 
 /* ── Launch Week Promo ── */
 const LAUNCH_DATE = '2026-06-11';
-const LAUNCH_END  = '2026-06-18';
+const LAUNCH_END  = '2026-07-31';
 
 (function initLaunchPromo() {
   const today = new Date().toISOString().split('T')[0];
@@ -30,8 +30,8 @@ const LAUNCH_END  = '2026-06-18';
     bar.className = 'launch-bar';
     bar.innerHTML = `<div class="launch-bar-inner">
       <span class="launch-bar-icon" aria-hidden="true">🎉</span>
-      <span class="launch-bar-text"><strong>Grand Opening Special:</strong> 10% OFF all services this week<em class="launch-bar-excl"> — waxing excluded</em></span>
-      ${daysLeft > 0 ? `<span class="launch-bar-pill">${daysLeft} day${daysLeft !== 1 ? 's' : ''} left</span>` : ''}
+      <span class="launch-bar-text"><strong>Grand Opening Special:</strong> 10% OFF all July bookings<em class="launch-bar-excl"> — waxing excluded</em></span>
+      <span class="launch-bar-pill">July only</span>
       <a href="book.html" class="launch-bar-cta">Book Now</a>
       <button class="launch-bar-close" aria-label="Dismiss promotion">×</button>
     </div>`;
@@ -56,9 +56,7 @@ const LAUNCH_END  = '2026-06-18';
 
     const validEl = document.getElementById('lpsValidUntil');
     if (validEl) {
-      const [y, mo, d] = LAUNCH_END.split('-');
-      const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      validEl.textContent = `Valid until ${mn[+mo - 1]} ${+d}, ${y}`;
+      validEl.textContent = 'July appointments only';
     }
 
     function updateLpsCountdown() {
@@ -2042,8 +2040,8 @@ function getSpecials() {
   const today = new Date().toISOString().split('T')[0];
   if (today >= LAUNCH_DATE && today <= LAUNCH_END) {
     return [{
-      id: 'launch_2026', name: 'Grand Opening — 10% Off',
-      desc: 'Celebrate our launch! 10% off all services. Excludes all waxing services.',
+      id: 'launch_2026', name: 'Grand Opening — 10% Off July Bookings',
+      desc: 'Book any service for a July appointment and save 10%. Excludes all waxing services.',
       type: 'percent', value: 10, applies: 'All Services excl. Waxing',
       startDate: LAUNCH_DATE, endDate: LAUNCH_END,
       colour: 'gold', active: true, createdAt: 1749600000000,
@@ -2262,8 +2260,8 @@ function renderSpecialsBanner() {
   let live = getSpecials().filter(s => specialStatus(s) === 'active');
   const _bToday = new Date().toISOString().split('T')[0];
   if (!live.length && _bToday >= LAUNCH_DATE && _bToday <= LAUNCH_END) {
-    live = [{ id:'launch_2026', name:'Grand Opening — 10% Off',
-      desc:'Celebrate our launch! 10% off all services. Excludes all waxing services.',
+    live = [{ id:'launch_2026', name:'Grand Opening — 10% Off July Bookings',
+      desc:'Book any service for a July appointment and save 10%. Excludes all waxing services.',
       type:'percent', value:10, applies:'All Services excl. Waxing',
       startDate:LAUNCH_DATE, endDate:LAUNCH_END, colour:'gold', active:true }];
   }
