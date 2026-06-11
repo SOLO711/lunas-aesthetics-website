@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shop | Luna's Esthetics</title>
+  <meta name="description" content="Shop professional skincare and beauty products at Luna's Esthetics — curated for real results."/>
+  <meta property="og:title" content="Shop | Luna's Esthetics"/>
+  <meta property="og:description" content="Shop professional skincare and beauty products at Luna's Esthetics."/>
+  <meta property="og:type" content="website"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://api.emailjs.com; frame-src https://maps.google.com https://www.google.com; object-src 'none'; base-uri 'self';"/>
+  <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+  <meta name="referrer" content="strict-origin-when-cross-origin"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%238B4F1C'/><text y='74' x='16' font-size='70' font-family='Georgia,serif' fill='%23C9A84C'>L</text></svg>"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <style>
+    .cs-wrap {
+      min-height: calc(100vh - 72px);
+      background: var(--dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* decorative large letter */
+    .cs-wrap::before {
+      content: 'L';
+      position: absolute;
+      font-family: Georgia, serif;
+      font-size: 60vw;
+      font-weight: 700;
+      color: rgba(201,168,76,0.04);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      user-select: none;
+      line-height: 1;
+    }
+
+    .cs-inner {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      max-width: 620px;
+    }
+
+    .cs-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 2rem;
+    }
+    .cs-eyebrow::before,
+    .cs-eyebrow::after {
+      content: '';
+      display: block;
+      width: 36px;
+      height: 1px;
+      background: var(--gold);
+      opacity: 0.6;
+    }
+
+    .cs-title {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: clamp(2.6rem, 7vw, 4.4rem);
+      font-weight: 400;
+      color: #fff;
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.01em;
+    }
+    .cs-title span {
+      color: var(--gold);
+      font-style: italic;
+    }
+
+    .cs-divider {
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 0 auto 1.8rem;
+    }
+
+    .cs-desc {
+      font-size: 1.05rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.75;
+      margin-bottom: 2.8rem;
+    }
+
+    .cs-dots {
+      display: flex;
+      justify-content: center;
+      gap: 1.8rem;
+      margin-bottom: 3rem;
+    }
+    .cs-dot-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .cs-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--gold);
+      opacity: 0.35;
+      animation: csPulse 2.4s ease-in-out infinite;
+    }
+    .cs-dot-item:nth-child(2) .cs-dot { animation-delay: 0.4s; opacity: 0.6; transform: scale(1.3); }
+    .cs-dot-item:nth-child(3) .cs-dot { animation-delay: 0.8s; }
+    .cs-dot-label {
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      font-weight: 600;
+    }
+    @keyframes csPulse {
+      0%, 100% { opacity: 0.25; transform: scale(1); }
+      50%       { opacity: 0.8;  transform: scale(1.4); }
+    }
+
+    .cs-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .cs-btn-gold {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 2rem;
+      background: var(--gold);
+      color: #1E0E00;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      text-decoration: none;
+      transition: background 0.25s, transform 0.2s;
+    }
+    .cs-btn-gold:hover { background: #d4b05a; transform: translateY(-2px); }
+
+    .cs-btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 2rem;
+      border: 1px solid rgba(201,168,76,0.45);
+      color: rgba(255,255,255,0.75);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border-radius: 2px;
+      text-decoration: none;
+      transition: border-color 0.25s, color 0.25s, transform 0.2s;
+    }
+    .cs-btn-ghost:hover { border-color: var(--gold); color: var(--gold); transform: translateY(-2px); }
+
+    .cs-note {
+      margin-top: 3rem;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar" id="navbar">
+  <div class="nav-container">
+    <a href="index.html" class="nav-logo">Luna's <span>Esthetics</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="services.html">Services</a></li>
+      <li><a href="gallery.html">Gallery</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="courses.html">Courses</a></li>
+      <li><a href="products.html" class="active">Shop</a></li>
+      <li><a href="contact.html">Contact</a></li>
+      <li><a href="book.html" class="nav-cta">Book Now</a></li>
+    </ul>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<div class="cs-wrap">
+  <div class="cs-inner">
+
+    <div class="cs-eyebrow">Luna's Shop</div>
+
+    <h1 class="cs-title">Something <span>Beautiful</span><br>is Coming <span>Soon</span></h1>
+
+    <div class="cs-divider"></div>
+
+    <p class="cs-desc">
+      Chel-C is curating a selection of professional-grade skincare,
+      waxing essentials, and beauty products — personally tested and
+      expert approved. The shop will be ready soon.
+    </p>
+
+    <div class="cs-dots">
+      <div class="cs-dot-item"><div class="cs-dot"></div><span class="cs-dot-label">Skincare</span></div>
+      <div class="cs-dot-item"><div class="cs-dot"></div><span class="cs-dot-label">Coming Soon</span></div>
+      <div class="cs-dot-item"><div class="cs-dot"></div><span class="cs-dot-label">Beauty Tools</span></div>
+    </div>
+
+    <div class="cs-actions">
+      <a href="https://www.instagram.com/Lunas.esthetics.tt" target="_blank" class="cs-btn-gold">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+        Follow for Updates
+      </a>
+      <a href="contact.html" class="cs-btn-ghost">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Get in Touch
+      </a>
+    </div>
+
+    <p class="cs-note">In the meantime, explore our services or book an appointment.</p>
+
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <h3>Luna's <span>Esthetics</span></h3>
+        <p>Trinidad's premier spa &amp; medspa. Luxury treatments, expert care, real results.</p>
+        <div class="footer-social">
+          <a href="https://www.instagram.com/Lunas.esthetics.tt" target="_blank" class="social-icon" aria-label="Instagram"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+          <a href="mailto:Leabacademyltd@gmail.com" class="social-icon" aria-label="Email"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></a>
+        </div>
+      </div>
+      <div class="footer-col"><h4>Navigate</h4><ul><li><a href="index.html">Home</a></li><li><a href="services.html">Services</a></li><li><a href="products.html">Shop</a></li><li><a href="contact.html">Contact</a></li></ul></div>
+      <div class="footer-col"><h4>Categories</h4><ul><li><a href="#">Skincare</a></li><li><a href="#">Waxing Supplies</a></li><li><a href="#">Body Care</a></li><li><a href="#">Beauty Tools</a></li></ul></div>
+      <div class="footer-col"><h4>Contact</h4><div class="footer-contact-line">Lp#19 Xavier Street, Chaguanas</div><div class="footer-contact-line"><a href="tel:18684639306">1(868) 463-9306</a></div><div class="footer-contact-line">Mon–Sat: 10AM–5PM</div></div>
+    </div>
+    <div class="footer-bottom"><span>© 2025 Luna's Esthetics.</span><div class="footer-bottom-links"><a href="book.html">Book Now</a><a href="contact.html">Contact</a></div></div>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+
+<!--
+  ╔══════════════════════════════════════════════════════╗
+  ║  SHOP CODE — saved, ready to restore when shop goes  ║
+  ║  live. Replace everything between <body> and the     ║
+  ║  footer above with the block below.                  ║
+  ╚══════════════════════════════════════════════════════╝
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+CART OVERLAY + SIDEBAR:
+<div class="cart-overlay" id="cartOverlay"></div>
+<div class="cart-sidebar" id="cartSidebar">
+  <div class="cart-head">
+    <h3>Your Cart</h3>
+    <button class="cart-close-btn" id="cartCloseBtn">✕</button>
+  </div>
+  <div class="cart-items" id="cartItems"></div>
+  <div class="cart-foot">
+    <div class="cart-total-line">
+      <span>Total</span>
+      <span id="cartTotal">TTD 0</span>
+    </div>
+    <button class="btn btn-primary" id="checkoutBtn" style="width:100%;">Place Order</button>
+    <p style="font-size:0.78rem;color:var(--text-light);text-align:center;margin-top:0.5rem;">Your order will be emailed to us for confirmation.</p>
+  </div>
+</div>
+
+CHECKOUT MODAL:
+<div class="modal-backdrop" id="checkoutModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>Complete Your Order</h3>
+      <button class="modal-x" id="checkoutModalClose">✕</button>
+    </div>
+    <form id="checkoutForm">
+      <div class="mfg"><label>Full Name *</label><input type="text" name="coName" placeholder="Jane Smith" required/></div>
+      <div class="mfg"><label>Phone Number *</label><input type="tel" name="coPhone" placeholder="1(868) 000-0000" required/></div>
+      <div class="mfg"><label>Email</label><input type="email" name="coEmail" placeholder="your@email.com"/></div>
+      <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:1rem;">We'll contact you to confirm payment and delivery/pickup.</p>
+      <div class="modal-foot">
+        <button type="button" class="btn-admin btn-admin-ghost" onclick="document.getElementById('checkoutModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn-admin btn-admin-pink">Send Order</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div id="orderSuccess" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#15803D;color:white;padding:1rem 2rem;border-radius:2px;font-weight:700;z-index:2000;">Order sent! We'll be in touch to confirm.</div>
+
+PAGE HERO:
+<section class="page-hero">
+  <div class="page-hero-content">
+    <span class="section-label" style="color:rgba(255,255,255,0.6);">Beauty Store</span>
+    <h1>Luna's Shop</h1>
+    <div class="gold-divider"></div>
+    <p>Professional-grade skincare, waxing essentials, and beauty products — recommended by our experts.</p>
+  </div>
+</section>
+
+SHOP SECTION:
+<section class="section">
+  <div class="container">
+    <div class="shop-topbar">
+      <div class="filter-tabs" style="margin-bottom:0;">
+        <button class="filter-tab active" onclick="filterProducts('all', this)">All Products</button>
+        <button class="filter-tab" onclick="filterProducts('skincare', this)">Skincare</button>
+        <button class="filter-tab" onclick="filterProducts('waxing', this)">Waxing</button>
+        <button class="filter-tab" onclick="filterProducts('body', this)">Body</button>
+        <button class="filter-tab" onclick="filterProducts('tools', this)">Tools</button>
+      </div>
+      <button class="cart-btn" id="openCartBtn">Cart <span class="cart-count" id="cartCount" style="display:none;">0</span></button>
+    </div>
+    <div class="product-grid" id="productGrid">
+      <div class="product-card" data-cat="skincare"><div class="product-img"><span class="product-badge">Best Seller</span></div><div class="product-body"><h3>Vitamin C Brightening Serum</h3><p>Fades dark spots and evens skin tone.</p></div><div class="product-footer"><div class="product-price">TTD 180</div><button class="btn-add-cart" onclick="addToCart('Vitamin C Brightening Serum', 180, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="skincare"><div class="product-img"></div><div class="product-body"><h3>Hyaluronic Acid Hydrating Cream</h3><p>Deep hydration that lasts 24 hours.</p></div><div class="product-footer"><div class="product-price">TTD 220</div><button class="btn-add-cart" onclick="addToCart('Hyaluronic Acid Hydrating Cream', 220, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="skincare"><div class="product-img"><span class="product-badge">New</span></div><div class="product-body"><h3>Retinol Anti-Aging Night Cream</h3><p>Stimulates collagen, reduces wrinkles overnight.</p></div><div class="product-footer"><div class="product-price">TTD 265</div><button class="btn-add-cart" onclick="addToCart('Retinol Anti-Aging Night Cream', 265, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="waxing"><div class="product-img"></div><div class="product-body"><h3>Premium Hard Wax Beads</h3><p>Professional-grade hard wax for sensitive areas.</p></div><div class="product-footer"><div class="product-price">TTD 140</div><button class="btn-add-cart" onclick="addToCart('Premium Hard Wax Beads', 140, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="waxing"><div class="product-img"></div><div class="product-body"><h3>Pre &amp; Post Wax Oil</h3><p>Soothes skin before and after waxing.</p></div><div class="product-footer"><div class="product-price">TTD 95</div><button class="btn-add-cart" onclick="addToCart('Pre & Post Wax Oil', 95, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="body"><div class="product-img"><span class="product-badge">Popular</span></div><div class="product-body"><h3>Lemon Bottle Brightening Body Lotion</h3><p>Brightens, firms, and hydrates.</p></div><div class="product-footer"><div class="product-price">TTD 195</div><button class="btn-add-cart" onclick="addToCart('Lemon Bottle Brightening Body Lotion', 195, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="body"><div class="product-img"></div><div class="product-body"><h3>Anti-Cellulite Body Scrub</h3><p>Exfoliates and smooths cellulite appearance.</p></div><div class="product-footer"><div class="product-price">TTD 120</div><button class="btn-add-cart" onclick="addToCart('Anti-Cellulite Body Scrub', 120, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="skincare"><div class="product-img"></div><div class="product-body"><h3>SPF 50 Tinted Sunscreen</h3><p>Broad-spectrum protection with a light tint.</p></div><div class="product-footer"><div class="product-price">TTD 160</div><button class="btn-add-cart" onclick="addToCart('SPF 50 Tinted Sunscreen', 160, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="tools"><div class="product-img"><span class="product-badge">New</span></div><div class="product-body"><h3>Facial Gua Sha Stone</h3><p>Rose quartz for lymphatic drainage and sculpting.</p></div><div class="product-footer"><div class="product-price">TTD 85</div><button class="btn-add-cart" onclick="addToCart('Facial Gua Sha Stone', 85, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="tools"><div class="product-img"></div><div class="product-body"><h3>LED Light Therapy Mask</h3><p>Red &amp; blue LED for collagen and acne reduction.</p></div><div class="product-footer"><div class="product-price">TTD 480</div><button class="btn-add-cart" onclick="addToCart('LED Light Therapy Mask', 480, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="body"><div class="product-img"></div><div class="product-body"><h3>Post-Lipo Compression Wrap</h3><p>Supports recovery after body contouring.</p></div><div class="product-footer"><div class="product-price">TTD 150</div><button class="btn-add-cart" onclick="addToCart('Post-Lipo Compression Wrap', 150, '')">Add to Cart</button></div></div>
+      <div class="product-card" data-cat="skincare"><div class="product-img"></div><div class="product-body"><h3>Niacinamide 10% Pore Minimizer</h3><p>Reduces pores, controls oil, brightens tone.</p></div><div class="product-footer"><div class="product-price">TTD 175</div><button class="btn-add-cart" onclick="addToCart('Niacinamide 10% Pore Minimizer', 175, '')">Add to Cart</button></div></div>
+    </div>
+    <div style="text-align:center;margin-top:3rem;padding:2.5rem;background:var(--pink-bg);border-radius:var(--radius);border:1px solid var(--border);">
+      <h3 style="margin-bottom:0.5rem;">Looking for Something Specific?</h3>
+      <p style="color:var(--text-light);max-width:480px;margin:0 auto 1.5rem;">We carry a wide selection of professional-grade beauty products. Contact us and we'll help you find exactly what you need.</p>
+      <a href="contact.html" class="btn btn-primary">Contact Us</a>
+    </div>
+  </div>
+</section>
+
+<section class="cta-banner">
+  <div class="container">
+    <div class="cta-banner-content">
+      <h2>Need Expert Advice?</h2>
+      <p>Our estheticians can recommend the perfect products for your skin type and concerns.</p>
+      <a href="book.html" class="btn btn-gold">Book a Consultation</a>
+    </div>
+  </div>
+</section>
+
+FILTER SCRIPT:
+<script>
+function filterProducts(cat, btn) {
+  document.querySelectorAll('.shop-topbar .filter-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.product-card').forEach(card => {
+    card.style.display = (cat === 'all' || card.dataset.cat === cat) ? '' : 'none';
+  });
+}
+</script>
+-->
+
+</body>
+</html>

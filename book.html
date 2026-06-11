@@ -1,0 +1,285 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book an Appointment | Luna's Esthetics</title>
+  <meta name="description" content="Book an appointment at Luna's Esthetics — online scheduling for facials, laser treatments, waxing, body contouring, and more in Chaguanas, Trinidad."/>
+  <meta property="og:title" content="Book an Appointment | Luna's Esthetics"/>
+  <meta property="og:description" content="Book your treatment online at Luna's Esthetics — facials, laser, waxing, body contouring and more in Chaguanas."/>
+  <meta property="og:type" content="website"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://api.emailjs.com; frame-src https://maps.google.com https://www.google.com; object-src 'none'; base-uri 'self';"/>
+  <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
+  <meta name="referrer" content="strict-origin-when-cross-origin"/>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%238B4F1C'/><text y='74' x='16' font-size='70' font-family='Georgia,serif' fill='%23C9A84C'>L</text></svg>"/>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<nav class="navbar" id="navbar">
+  <div class="nav-container">
+    <a href="index.html" class="nav-logo">Luna's <span>Esthetics</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="services.html">Services</a></li>
+      <li><a href="gallery.html">Gallery</a></li>
+      <li><a href="about.html">About</a></li>
+      <li><a href="courses.html">Courses</a></li>
+      <li><a href="products.html">Shop</a></li>
+      <li><a href="contact.html">Contact</a></li>
+      <li><a href="book.html" class="nav-cta active">Book Now</a></li>
+    </ul>
+    <button class="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<section class="page-hero">
+  <div class="page-hero-content">
+    <span class="section-label" style="color:rgba(255,255,255,0.6);">Appointments</span>
+    <h1>Book Your Visit</h1>
+    <div class="gold-divider"></div>
+    <p>Select your service, pick a date and time, and we'll confirm your appointment by email.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="booking-layout">
+
+      <!-- Booking Form -->
+      <div class="booking-form-panel">
+        <h3 style="margin-bottom:1.5rem;">Appointment Details</h3>
+        <form id="bookingForm">
+
+          <div class="form-group">
+            <label>Service Category *</label>
+            <select id="bookCat" name="bookCat" required>
+              <option value="">Select a category</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Service *</label>
+            <select id="bookService" name="bookService" disabled required>
+              <option value="">Select a service first</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Preferred Date *</label>
+              <input type="date" id="bookDate" name="bookDate" required/>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Preferred Time *</label>
+            <div class="time-slots" id="timeSlots"></div>
+            <div class="request-notice" id="requestNotice">This time is already booked — your booking will be sent as a <strong>request</strong> for Chel-C to review and confirm.</div>
+            <input type="hidden" id="selectedTime" name="selectedTime"/>
+          </div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0;"/>
+
+          <h4 style="margin-bottom:1rem;font-size:1rem;">Your Contact Info</h4>
+
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" name="clientName" placeholder="Jane Smith" required/>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Phone Number *</label>
+              <input type="tel" name="clientPhone" placeholder="1(868) 000-0000" required/>
+            </div>
+            <div class="form-group">
+              <label>Email <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gold-dark);font-size:0.72rem;">(confirmation sent here)</span></label>
+              <input type="email" name="clientEmail" placeholder="your@email.com"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Notes / Special Requests</label>
+            <textarea name="notes" rows="3" placeholder="Any skin concerns, allergies, or notes for your esthetician..."></textarea>
+          </div>
+
+          <!-- Booking Summary -->
+          <div class="booking-summary" id="bookingSummary">
+            <h4>Appointment Summary</h4>
+            <div class="summary-row"><span>Service</span><span id="sumService">—</span></div>
+            <div class="summary-row"><span>Price</span><span id="sumPrice">—</span></div>
+            <div class="summary-row"><span>Duration</span><span id="sumDuration">—</span></div>
+            <div class="summary-row"><span>Date</span><span id="sumDate">—</span></div>
+            <div class="summary-row"><span>Time</span><span id="sumTime">—</span></div>
+          </div>
+
+          <!-- honeypot: hidden from humans, bots fill it in -->
+          <input type="text" name="website" style="position:absolute;left:-9999px;opacity:0;pointer-events:none;" tabindex="-1" autocomplete="off" aria-hidden="true"/>
+          <div class="booking-actions">
+            <button type="submit" class="btn btn-primary" style="flex:1;">Confirm Booking</button>
+          </div>
+          <p style="font-size:0.8rem;color:var(--text-light);margin-top:0.75rem;text-align:center;">We'll contact you to confirm your appointment. Payment is accepted on the day.</p>
+        </form>
+
+        <!-- Success Panel (shown after booking) -->
+        <div class="booking-success" id="bookingSuccess">
+          <div class="booking-success-icon"></div>
+          <h3 id="bsHeading">Booking Confirmed!</h3>
+          <p>Thank you, <strong id="bsName"></strong>.</p>
+          <p id="bsMsg" style="margin-top:0.4rem;"></p>
+          <p style="margin-top:1rem;" class="bs-detail"><strong id="bsService"></strong></p>
+          <p class="bs-detail"><span id="bsDate"></span> &nbsp;·&nbsp; <span id="bsTime"></span></p>
+          <p style="margin-top:1.25rem;color:var(--text-light);font-size:0.88rem;">If you have any questions, call us at <a href="tel:18684639306" style="color:var(--pink-dark);font-weight:700;">1(868) 463-9306</a>.</p>
+
+          <!-- Banking Info — shown on success screen -->
+          <div style="margin-top:1.5rem;padding:1.25rem 1.4rem;background:#fffbf0;border:2px solid var(--gold-dark);border-radius:var(--radius);text-align:left;width:100%;box-sizing:border-box;">
+            <p style="font-size:0.9rem;font-weight:700;color:var(--gold-dark);margin-bottom:0.6rem;letter-spacing:0.02em;">Our Banking Information</p>
+            <p style="font-size:0.84rem;line-height:1.8;margin-bottom:0.75rem;">
+              <strong>Bank:</strong> Republic Bank<br>
+              <strong>Account Name:</strong> Lunas Esthetics and Academy Ltd<br>
+              <strong>Account #:</strong> 660804250301<br>
+              <strong>Account Type:</strong> Chequing
+            </p>
+            <div style="background:#fff0f0;border-left:3px solid #c0392b;padding:0.6rem 0.8rem;border-radius:4px;margin-bottom:0.65rem;">
+              <p style="font-size:0.81rem;color:#c0392b;font-weight:700;margin-bottom:0.25rem;">⚠️ IMPORTANT</p>
+              <p style="font-size:0.81rem;line-height:1.6;">Please attach your <strong>first and last name</strong> and the <strong>date of your appointment</strong> to the receipt. Failure to do so will result in us not being able to identify you as the payee — Lunas will not be held liable.</p>
+            </div>
+            <p style="font-size:0.82rem;">Kindly send a screenshot of your payment to <strong>1(868) 463-9306</strong>.</p>
+          </div>
+
+          <a href="index.html" class="btn btn-primary" style="margin-top:1.5rem;">Back to Home</a>
+          <br/>
+          <button type="button" id="icalBtn" class="btn-ical" style="display:none;">📅 Add to Calendar</button>
+        </div>
+      </div>
+
+      <!-- Info Sidebar -->
+      <div>
+        <h3 style="margin-bottom:1.5rem;">How It Works</h3>
+
+        <div class="booking-step">
+          <div class="booking-step-num">1</div>
+          <div class="booking-step-text">
+            <h4>Choose Your Service</h4>
+            <p>Select your category and the specific treatment you'd like.</p>
+          </div>
+        </div>
+
+        <div class="booking-step">
+          <div class="booking-step-num">2</div>
+          <div class="booking-step-text">
+            <h4>Pick a Date &amp; Time</h4>
+            <p>Choose your preferred date and one of our available time slots (Mon–Sat, 10AM–5PM).</p>
+          </div>
+        </div>
+
+        <div class="booking-step">
+          <div class="booking-step-num">3</div>
+          <div class="booking-step-text">
+            <h4>We Confirm by Email</h4>
+            <p>Your booking is sent directly to us. We'll contact you to confirm your appointment.</p>
+          </div>
+        </div>
+
+        <div class="booking-step">
+          <div class="booking-step-num">4</div>
+          <div class="booking-step-text">
+            <h4>Come In &amp; Glow</h4>
+            <p>Arrive at Lp#19 Xavier Street, Chaguanas and let us take care of the rest!</p>
+          </div>
+        </div>
+
+        <!-- Policy Box -->
+        <div class="booking-policy">
+          <h4>Booking Policy</h4>
+          <ul>
+            <li>Please arrive 5–10 minutes before your appointment.</li>
+            <li>Cancellations must be made at least 24 hours in advance.</li>
+            <li>For intimate brightening &amp; weight loss shots, a free consultation is required first.</li>
+            <li>For waxing: avoid shaving 3–4 weeks prior, and exfoliate 24–48 hrs before.</li>
+            <li>Payment accepted in cash or bank transfer on the day.</li>
+          </ul>
+        </div>
+
+        <!-- Direct Contact -->
+        <div style="margin-top:1.5rem;padding:1.5rem;background:var(--pink-bg);border-radius:var(--radius);border:1px solid var(--border);">
+          <h4 style="font-size:1rem;margin-bottom:0.75rem;">Prefer to reach us directly?</h4>
+          <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+            <a href="tel:18684639306" class="btn btn-primary" style="padding:10px 18px;font-size:0.82rem;">Call Us</a>
+            <a href="mailto:Leabacademyltd@gmail.com" class="btn btn-gold" style="padding:10px 18px;font-size:0.82rem;">Email Us</a>
+          </div>
+          <p style="margin-top:0.75rem;font-size:0.83rem;color:var(--text-light);">Lp#19 Xavier Street, Chaguanas &nbsp;|&nbsp; Mon–Sat: 10AM–5PM</p>
+        </div>
+
+        <!-- Banking Information -->
+        <div style="margin-top:1.5rem;padding:1.5rem;background:#fffbf0;border-radius:var(--radius);border:2px solid var(--gold-dark);">
+          <h4 style="font-size:1rem;margin-bottom:0.75rem;color:var(--gold-dark);">Our Banking Information</h4>
+          <p style="font-size:0.85rem;line-height:1.8;margin-bottom:0.75rem;">
+            <strong>Bank:</strong> Republic Bank<br>
+            <strong>Account Name:</strong> Lunas Esthetics and Academy Ltd<br>
+            <strong>Account #:</strong> 660804250301<br>
+            <strong>Account Type:</strong> Chequing
+          </p>
+          <div style="background:#fff0f0;border-left:3px solid #c0392b;padding:0.65rem 0.85rem;border-radius:4px;margin-bottom:0.7rem;">
+            <p style="font-size:0.8rem;color:#c0392b;font-weight:700;margin-bottom:0.2rem;">⚠️ IMPORTANT</p>
+            <p style="font-size:0.8rem;line-height:1.6;">Please attach your <strong>first and last name</strong> and the <strong>date of your appointment</strong> to the receipt. Failure to do so will result in us not being able to identify you as the payee — Lunas will not be held liable.</p>
+          </div>
+          <p style="font-size:0.82rem;">Kindly send a screenshot of your payment to <strong>1(868) 463-9306</strong>.</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <h3>Luna's <span>Esthetics</span></h3>
+        <p>Trinidad's premier spa &amp; medspa. Luxury treatments, expert care, real results.</p>
+        <div class="footer-social">
+          <a href="https://www.instagram.com/Lunas.esthetics.tt" target="_blank" class="social-icon" aria-label="Instagram"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+          <a href="mailto:Leabacademyltd@gmail.com" class="social-icon" aria-label="Email"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></a>
+        </div>
+      </div>
+      <div class="footer-col"><h4>Navigate</h4><ul><li><a href="index.html">Home</a></li><li><a href="services.html">Services</a></li><li><a href="gallery.html">Gallery</a></li><li><a href="contact.html">Contact</a></li></ul></div>
+      <div class="footer-col"><h4>Services</h4><ul><li><a href="services.html">Facials</a></li><li><a href="services.html">Laser</a></li><li><a href="services.html">Waxing</a></li><li><a href="services.html">Packages</a></li></ul></div>
+      <div class="footer-col"><h4>Contact</h4><div class="footer-contact-line">Lp#19 Xavier Street, Chaguanas</div><div class="footer-contact-line"><a href="tel:18684639306">1(868) 463-9306</a></div><div class="footer-contact-line">Mon–Sat: 10AM–5PM</div></div>
+    </div>
+    <div class="footer-bottom"><span>© 2025 Luna's Esthetics.</span><div class="footer-bottom-links"><a href="services.html">Services</a><a href="contact.html">Contact</a></div></div>
+  </div>
+</footer>
+
+<!-- Consent Modal -->
+<div class="consent-backdrop" id="consentModal" aria-modal="true" role="dialog" aria-labelledby="consentTitle">
+  <div class="consent-box">
+    <div class="consent-head">
+      <div>
+        <p class="consent-eyebrow">Luna's Esthetics &amp; Academy Ltd.</p>
+        <h3 id="consentTitle">Treatment Policy &amp; Consent</h3>
+      </div>
+    </div>
+    <div class="consent-body" id="consentBody"></div>
+    <div class="consent-foot">
+      <label class="consent-check-label" for="consentCheck">
+        <input type="checkbox" id="consentCheck"/>
+        <span class="consent-check-box"></span>
+        <span>I have read and understood the above policy. I have disclosed all relevant medical information and I consent to treatment.</span>
+      </label>
+      <div class="consent-actions">
+        <button type="button" class="consent-back-btn" id="consentBack">← Go Back</button>
+        <button type="button" class="consent-confirm-btn" id="consentConfirm" disabled>Confirm &amp; Book</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- Optional Firebase for real-time slot availability — add your config in script.js first
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+-->
+<script src="script.js"></script>
+</body>
+</html>
