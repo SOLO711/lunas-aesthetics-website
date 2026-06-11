@@ -2217,6 +2217,78 @@ initSpecials();
 initServicesMgr();
 initCoursesMgr();
 
+/* ── Courses Public Page — Dynamic Rendering ── */
+(function initPublicCoursesPage() {
+  const mgtList = document.getElementById('mgtList');
+  if (!mgtList) return;
+
+  const DEFAULT_IDS = new Set([1,2,3,4,5,6,7,8,9,10]);
+  const LEVEL_BADGE = { Beginner:'level-beginner', Intermediate:'level-intermediate', Advanced:'level-advanced', Bundle:'level-bundle', 'Master Bundle':'level-master', 'Signature Program':'level-signature' };
+
+  function getCourses() {
+    return JSON.parse(localStorage.getItem('lunas_courses') || 'null') || [
+      { id:1, name:'Full Body Waxing Course',          level:'Beginner',         duration:'4 Days',   price:'TTD 3,500', status:'active' },
+      { id:2, name:'Basic Vajacial Training',           level:'Intermediate',     duration:'2 Days',   price:'TTD 1,500', status:'active' },
+      { id:3, name:'Advanced Vajacial Training',        level:'Advanced',         duration:'2 Days',   price:'TTD 1,500', status:'active' },
+      { id:4, name:'Complete Vajacial Package',         level:'Bundle',           duration:'3 Days',   price:'TTD 2,500', status:'active' },
+      { id:5, name:'Basic Facial Certification',        level:'Beginner',         duration:'8 Weeks',  price:'TTD 4,500', status:'active' },
+      { id:6, name:'Advanced Facial Certification',     level:'Advanced',         duration:'8 Weeks',  price:'TTD 5,000', status:'active' },
+      { id:7, name:'Facial Master Certification',       level:'Master Bundle',    duration:'14 Weeks', price:'TTD 8,500', status:'active' },
+      { id:8, name:'Body Contouring Certification',     level:'Advanced',         duration:'4 Days',   price:'TTD 3,000', status:'active' },
+      { id:9, name:'Eyebrow Tint, Lamination & Sculpt', level:'Beginner',        duration:'3 Days',   price:'TTD 3,000', status:'active' },
+      { id:10, name:'The Pink Print Empire™',           level:'Signature Program',duration:'4 Weeks',  price:'TTD 10,000',status:'upcoming'},
+    ];
+  }
+
+  function renderList() {
+    const courses = getCourses().filter(c => c.status !== 'inactive');
+    mgtList.innerHTML = courses.map((c, i) => {
+      const priceStr = c.price ? (String(c.price).startsWith('TTD') ? c.price : 'TTD ' + c.price) : '';
+      return `<div class="mgt-row">
+        <span class="mgt-row-num">${String(i+1).padStart(2,'0')}</span>
+        <span class="mgt-row-name">${c.name}</span>
+        <span class="mgt-row-tag">${c.level} · ${c.duration}</span>
+        <span class="mgt-row-price">${priceStr}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderExtras() {
+    const extras = getCourses().filter(c => !DEFAULT_IDS.has(Number(c.id)) && c.status !== 'inactive');
+    const container = document.getElementById('extraCourseCards');
+    const grid = document.getElementById('extraCourseGrid');
+    if (!container || !grid) return;
+    if (!extras.length) { container.style.display = 'none'; return; }
+    container.style.display = '';
+    grid.innerHTML = extras.map(c => {
+      const priceStr = c.price ? (String(c.price).startsWith('TTD') ? c.price : 'TTD ' + c.price) : '';
+      const badge = LEVEL_BADGE[c.level] || 'level-beginner';
+      return `<div class="course-card reveal-up">
+        <div class="course-img course-img--intermediate">
+          <span class="crd-num">★</span>
+          <span class="course-level-badge ${badge}">${c.level || 'Course'}</span>
+        </div>
+        <div class="course-body">
+          <h3>${c.name}</h3>
+          <p>${c.desc || ''}</p>
+          <div class="course-meta">
+            <span class="course-meta-tag">${c.duration || ''}</span>
+          </div>
+          <div class="course-price-row">
+            <span class="course-price">${priceStr}</span>
+            ${c.deposit ? `<span class="course-deposit">Deposit: ${String(c.deposit).startsWith('TTD') ? c.deposit : 'TTD '+c.deposit}</span>` : ''}
+          </div>
+          <a href="contact.html?course=${encodeURIComponent(c.name)}" class="btn btn-primary crd-btn">Enquire Now</a>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  renderList();
+  renderExtras();
+  onSyncReady(() => { renderList(); renderExtras(); });
+})();
+
 /* ── Services Page — Quick Book Sheet ── */
 (function () {
   if (!document.querySelector('.pricing-item')) return;

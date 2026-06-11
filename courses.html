@@ -80,77 +80,7 @@
       </div>
 
       <div class="mgt-list" id="mgtList">
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">01</span>
-          <span class="mgt-row-name">Full Body Waxing Course</span>
-          <span class="mgt-row-tag">Beginner · 4 Days</span>
-          <span class="mgt-row-price">TTD 3,500</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">02</span>
-          <span class="mgt-row-name">Basic Vajacial Training</span>
-          <span class="mgt-row-tag">Intermediate · 2 Days</span>
-          <span class="mgt-row-price">TTD 1,500</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">03</span>
-          <span class="mgt-row-name">Advanced Vajacial Training</span>
-          <span class="mgt-row-tag">Advanced · 2 Days</span>
-          <span class="mgt-row-price">TTD 1,500</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">04</span>
-          <span class="mgt-row-name">Complete Vajacial Package</span>
-          <span class="mgt-row-tag">Bundle · 3 Days</span>
-          <span class="mgt-row-price">TTD 2,500</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">05</span>
-          <span class="mgt-row-name">Basic Facial Certification</span>
-          <span class="mgt-row-tag">Beginner · 8 Weeks</span>
-          <span class="mgt-row-price">TTD 4,500</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">06</span>
-          <span class="mgt-row-name">Advanced Facial Certification</span>
-          <span class="mgt-row-tag">Advanced · 8 Weeks</span>
-          <span class="mgt-row-price">TTD 5,000</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">07</span>
-          <span class="mgt-row-name">Facial Master Certification</span>
-          <span class="mgt-row-tag">Master Bundle · 14 Weeks</span>
-          <span class="mgt-row-price">TTD 8,500</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">08</span>
-          <span class="mgt-row-name">Body Contouring Certification</span>
-          <span class="mgt-row-tag">Advanced · 4 Days</span>
-          <span class="mgt-row-price">TTD 3,000</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">09</span>
-          <span class="mgt-row-name">Eyebrow Tint, Lamination &amp; Sculpt</span>
-          <span class="mgt-row-tag">Beginner · 3 Days</span>
-          <span class="mgt-row-price">TTD 3,000</span>
-        </div>
-
-        <div class="mgt-row">
-          <span class="mgt-row-num">10</span>
-          <span class="mgt-row-name">The Pink Print Empire™</span>
-          <span class="mgt-row-tag">Signature · 4 Weeks</span>
-          <span class="mgt-row-price">TTD 10,000</span>
-        </div>
-
+        <!-- Populated dynamically from admin course data -->
       </div>
     </div>
 
@@ -617,6 +547,17 @@
       </div>
 
     </div>
+
+    <!-- Admin-added courses render here -->
+    <div id="extraCourseCards" style="display:none;">
+      <div class="text-center" style="margin:3rem 0 2rem;">
+        <span class="section-label">Additional Courses</span>
+        <h2>More Offerings</h2>
+        <div class="gold-divider"></div>
+      </div>
+      <div class="course-grid" id="extraCourseGrid"></div>
+    </div>
+
   </div>
 </section>
 
