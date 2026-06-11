@@ -2301,6 +2301,7 @@ initCoursesMgr();
     const raw = localStorage.getItem('lunas_services');
     if (!raw) return;
     const data = JSON.parse(raw);
+    if (data['Spa Packages']) data['Spa Packages'] = data['Spa Packages'].filter(s => s.name !== 'The Ultimate Beauty Package');
 
     Object.entries(CAT_MAP).forEach(([catName, slug]) => {
       const section = document.querySelector(`.service-cat-section[data-cat="${slug}"]`);
@@ -2574,7 +2575,11 @@ function initServicesMgr() {
   };
 
   function loadServices() {
-    return JSON.parse(localStorage.getItem('lunas_services') || 'null') || DEFAULT_SERVICES;
+    const data = JSON.parse(localStorage.getItem('lunas_services') || 'null') || DEFAULT_SERVICES;
+    if (data['Spa Packages']) {
+      data['Spa Packages'] = data['Spa Packages'].filter(s => s.name !== 'The Ultimate Beauty Package');
+    }
+    return data;
   }
   function saveServices(data) {
     localStorage.setItem('lunas_services', JSON.stringify(data));
