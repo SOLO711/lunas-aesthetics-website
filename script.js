@@ -424,7 +424,10 @@ function onSyncReady(fn) { _syncReady ? fn() : _syncCallbacks.push(fn); }
 
 async function _fsGet(key) {
   try {
-    const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}`);
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}`, { signal: ctrl.signal });
+    clearTimeout(tid);
     if (!res.ok) return null;
     const doc = await res.json();
     const sv = doc.fields?.value?.stringValue;
