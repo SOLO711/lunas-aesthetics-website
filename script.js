@@ -2752,20 +2752,31 @@ initCoursesMgr();
   backdrop.addEventListener('click', e => { if (e.target === backdrop) closeQB(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeQB(); });
 
-  // Make every pricing item clickable
-  document.querySelectorAll('.pricing-item').forEach(item => {
+  // Attach click handler to a single pricing item (safe to call multiple times)
+  function attachPricingItem(item) {
+    if (item.dataset.qbAttached) return;
+    item.dataset.qbAttached = '1';
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
     const handler = () => {
-      const name    = item.querySelector('.pricing-name')?.textContent?.trim() || '';
-      const price   = item.querySelector('.pricing-price')?.textContent?.trim() || '';
-      const desc    = item.querySelector('.pricing-desc')?.textContent?.trim()  || '';
-      const catKey  = item.closest('.service-cat-section')?.dataset?.cat || '';
+      const name   = item.querySelector('.pricing-name')?.textContent?.trim() || '';
+      const price  = item.querySelector('.pricing-price')?.textContent?.trim() || '';
+      const desc   = item.querySelector('.pricing-desc')?.textContent?.trim()  || '';
+      const catKey = item.closest('.service-cat-section')?.dataset?.cat || '';
       if (name) openQB(name, price, desc, catKey);
     };
     item.addEventListener('click', handler);
     item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
+  }
+
+  // Attach to items already in the static HTML
+  document.querySelectorAll('.pricing-item').forEach(attachPricingItem);
+
+  // Watch for admin-added services injected after Firestore sync
+  const _qbObs = new MutationObserver(() => {
+    document.querySelectorAll('.pricing-item:not([data-qb-attached])').forEach(attachPricingItem);
   });
+  document.querySelectorAll('.pricing-grid').forEach(grid => _qbObs.observe(grid, { childList: true }));
 })();
 
 /* ── Course page: waxing addon checkbox ── */
