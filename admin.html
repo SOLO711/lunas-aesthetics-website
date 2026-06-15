@@ -8,7 +8,7 @@
   <meta name="referrer" content="no-referrer"/>
   <meta name="robots" content="noindex, nofollow"/>
   <title>Admin | Luna's Esthetics</title>
-  <link rel="stylesheet" href="styles.css?v=5"/>
+  <link rel="stylesheet" href="styles.css?v=6"/>
 </head>
 <body class="admin-page">
 
@@ -277,6 +277,41 @@
           <div class="cal-detail" id="calDetail">
             <div class="cal-detail-empty"><p>Click a day to see bookings for that date.</p></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Blocked Dates Manager -->
+      <div class="admin-card" style="margin-top:1.5rem;">
+        <div class="admin-card-head">
+          <h3>🚫 Blocked Dates</h3>
+          <span style="font-size:0.78rem;color:#9CA3AF;">Block months or days — clients will see them as fully booked</span>
+        </div>
+        <div class="admin-card-body" style="padding:1.5rem;">
+
+          <!-- Block a whole month -->
+          <div style="margin-bottom:1.75rem;">
+            <h4 style="font-size:0.9rem;font-weight:700;color:var(--pink-dark);margin-bottom:0.6rem;">Block Entire Month</h4>
+            <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:0.85rem;">All days in that month will show as fully booked out.</p>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <input type="month" id="blockMonthInput" style="padding:0.6rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.88rem;color:var(--text);background:#fff;"/>
+              <button class="btn-admin btn-admin-pink" id="blockMonthBtn">Block Month</button>
+            </div>
+            <div id="blockedMonthsList" style="margin-top:0.85rem;display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
+          </div>
+
+          <hr style="border:none;border-top:1px solid var(--border);margin-bottom:1.75rem;"/>
+
+          <!-- Block an individual day -->
+          <div>
+            <h4 style="font-size:0.9rem;font-weight:700;color:var(--pink-dark);margin-bottom:0.6rem;">Block Individual Day</h4>
+            <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:0.85rem;">That specific date will show as fully booked out.</p>
+            <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+              <input type="date" id="blockDayInput" style="padding:0.6rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius);font-size:0.88rem;color:var(--text);background:#fff;"/>
+              <button class="btn-admin btn-admin-pink" id="blockDayBtn">Block Day</button>
+            </div>
+            <div id="blockedDaysList" style="margin-top:0.85rem;display:flex;flex-wrap:wrap;gap:0.5rem;"></div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -841,6 +876,6 @@
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="script.js?v=5"></script>
+<script src="script.js?v=6"></script>
 </body>
 </html>

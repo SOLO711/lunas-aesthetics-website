@@ -502,7 +502,7 @@ async function _fsSet(key, val) {
   } catch(e) { console.warn('[Firestore] write failed [' + key + ']:', e.message); }
 }
 (async function _syncOnLoad() {
-  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory'];
+  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates'];
   const results = await Promise.allSettled(keys.map(k => _fsGet(k)));
   keys.forEach((k, i) => {
     const r = results[i];
@@ -513,6 +513,20 @@ async function _fsSet(key, val) {
   _syncReady = true;
   _syncCallbacks.forEach(fn => { try { fn(); } catch(e) {} });
 })();
+
+/* ── Blocked Dates helpers ── */
+function getBlockedDates() {
+  try { return JSON.parse(localStorage.getItem('lunas_blocked_dates') || 'null') || { months: [], days: [] }; }
+  catch(e) { return { months: [], days: [] }; }
+}
+function saveBlockedDates(data) {
+  localStorage.setItem('lunas_blocked_dates', JSON.stringify(data));
+  _fsSet('blocked_dates', data);
+}
+function isDateBlocked(dateStr) {
+  const bd = getBlockedDates();
+  return (bd.days || []).includes(dateStr) || (bd.months || []).includes(dateStr.substring(0, 7));
+}
 
 async function getBookedSlots(dateStr) {
   try {
@@ -734,6 +748,19 @@ function initBooking() {
       return;
     }
 
+    // Fetch fresh blocked dates from Firestore for real-time accuracy
+    const freshBD = await _fsGet('blocked_dates');
+    if (freshBD) localStorage.setItem('lunas_blocked_dates', JSON.stringify(freshBD));
+
+    if (isDateBlocked(dateStr)) {
+      timeWrap.innerHTML = '<div class="slot-closed-msg">🚫 This date is fully booked out — please choose a different date.</div>';
+      selectedTimeInput.value = '';
+      _bookingType = 'confirmed';
+      if (requestNotice) requestNotice.style.display = 'none';
+      updateSummary();
+      return;
+    }
+
     timeWrap.innerHTML = '<span style="color:var(--text-light);font-size:0.84rem;padding:0.4rem 0;display:block;">Checking availability…</span>';
     const booked = await getBookedSlots(dateStr);
     timeWrap.innerHTML = '';
@@ -831,6 +858,17 @@ function initBooking() {
     if (_julyPromo) {
       const _m = svc.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
       if (_m) { const _o = parseFloat(_m[0]); _discAmt = Math.round(_o * 0.1); _discTotal = _o - _discAmt; }
+    }
+
+    // Re-check blocked dates before confirming
+    const freshBD2 = await _fsGet('blocked_dates');
+    if (freshBD2) localStorage.setItem('lunas_blocked_dates', JSON.stringify(freshBD2));
+    if (isDateBlocked(dateStr)) {
+      alert('This date is no longer available. Please choose a different date.');
+      await renderTimeSlots(dateStr);
+      selectedTimeInput.value = '';
+      updateSummary();
+      return;
     }
 
     // Re-check slot availability before confirming
@@ -1250,7 +1288,7 @@ function initAdmin() {
     else if (name === 'bookings') renderBookingsTable(document.getElementById('bookingSearch')?.value.toLowerCase() || '');
     else if (name === 'clients')  renderClientsTable(document.getElementById('clientSearch')?.value.toLowerCase() || '');
     else if (name === 'inventory') renderInventoryTable(document.getElementById('inventorySearch')?.value.toLowerCase() || '');
-    else if (name === 'calendar') renderCalendar();
+    else if (name === 'calendar') { renderCalendar(); renderBlockedDates(); }
     else if (name === 'analytics') renderAnalytics();
     else if (name === 'specials') renderSpecials();
 
@@ -1302,9 +1340,88 @@ function loadAdminData() {
   };
   _renderAll();
   initSettings();
+  initBlockedDates();
   const expBtn = document.getElementById('exportCsvBtn');
   if (expBtn) expBtn.onclick = exportBookingsCSV;
   onSyncReady(_renderAll);
+}
+
+/* ── Blocked Dates Admin UI ── */
+function renderBlockedDates() {
+  const bd = getBlockedDates();
+  const MONTHS_FULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const monthsList = document.getElementById('blockedMonthsList');
+  if (monthsList) {
+    if (!(bd.months || []).length) {
+      monthsList.innerHTML = '<span style="color:var(--text-light);font-size:0.82rem;">No months blocked.</span>';
+    } else {
+      monthsList.innerHTML = bd.months.map(m => {
+        const [y, mo] = m.split('-');
+        const label = `${MONTHS_FULL[parseInt(mo, 10) - 1]} ${y}`;
+        return `<span class="blocked-tag">${label} <button class="blocked-tag-remove" onclick="unblockMonth('${m}')">✕</button></span>`;
+      }).join('');
+    }
+  }
+
+  const daysList = document.getElementById('blockedDaysList');
+  if (daysList) {
+    if (!(bd.days || []).length) {
+      daysList.innerHTML = '<span style="color:var(--text-light);font-size:0.82rem;">No individual days blocked.</span>';
+    } else {
+      daysList.innerHTML = bd.days.map(d => {
+        const label = new Date(d + 'T00:00').toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        return `<span class="blocked-tag">${label} <button class="blocked-tag-remove" onclick="unblockDay('${d}')">✕</button></span>`;
+      }).join('');
+    }
+  }
+}
+
+window.unblockMonth = m => {
+  const bd = getBlockedDates();
+  bd.months = (bd.months || []).filter(x => x !== m);
+  saveBlockedDates(bd);
+  renderBlockedDates();
+  renderCalendar();
+};
+window.unblockDay = d => {
+  const bd = getBlockedDates();
+  bd.days = (bd.days || []).filter(x => x !== d);
+  saveBlockedDates(bd);
+  renderBlockedDates();
+  renderCalendar();
+};
+
+function initBlockedDates() {
+  document.getElementById('blockMonthBtn')?.addEventListener('click', () => {
+    const input = document.getElementById('blockMonthInput');
+    const val = input?.value;
+    if (!val) { alert('Please select a month first.'); return; }
+    const bd = getBlockedDates();
+    if (!(bd.months || []).includes(val)) {
+      bd.months = [...(bd.months || []), val].sort();
+      saveBlockedDates(bd);
+      renderBlockedDates();
+      renderCalendar();
+    }
+    if (input) input.value = '';
+  });
+
+  document.getElementById('blockDayBtn')?.addEventListener('click', () => {
+    const input = document.getElementById('blockDayInput');
+    const val = input?.value;
+    if (!val) { alert('Please select a date first.'); return; }
+    const bd = getBlockedDates();
+    if (!(bd.days || []).includes(val)) {
+      bd.days = [...(bd.days || []), val].sort();
+      saveBlockedDates(bd);
+      renderBlockedDates();
+      renderCalendar();
+    }
+    if (input) input.value = '';
+  });
+
+  renderBlockedDates();
 }
 
 /* ── Admin Calendar ── */
@@ -1326,6 +1443,16 @@ function renderCalendar() {
     bookingMap[b.date].push(b);
   });
 
+  const blockedDates = getBlockedDates();
+  const monthStr = `${_calYear}-${String(_calMonth + 1).padStart(2, '0')}`;
+  const isMonthBlocked = (blockedDates.months || []).includes(monthStr);
+
+  if (isMonthBlocked) {
+    title.innerHTML = `${MONTHS[_calMonth]} ${_calYear} <span style="font-size:0.65rem;background:#FEE2E2;color:#DC2626;padding:2px 8px;border-radius:4px;font-weight:700;margin-left:8px;vertical-align:middle;">BLOCKED</span>`;
+  } else {
+    title.textContent = `${MONTHS[_calMonth]} ${_calYear}`;
+  }
+
   const firstDay = new Date(_calYear, _calMonth, 1).getDay();
   const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
   const today = new Date();
@@ -1340,8 +1467,9 @@ function renderCalendar() {
     const ds = `${_calYear}-${String(_calMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dayB = bookingMap[ds] || [];
     const isToday = d === today.getDate() && _calMonth === today.getMonth() && _calYear === today.getFullYear();
-    html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${dayB.length ? ' cal-has-bookings' : ''}" onclick="selectCalDay('${ds}')">
-      <div class="cal-day-num">${d}</div>
+    const isBlocked = isMonthBlocked || (blockedDates.days || []).includes(ds);
+    html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${isBlocked ? ' cal-blocked' : ''}${dayB.length ? ' cal-has-bookings' : ''}" onclick="selectCalDay('${ds}')">
+      <div class="cal-day-num">${d}${isBlocked ? '<span class="cal-blocked-tag">Blocked</span>' : ''}</div>
       ${dayB.slice(0, 3).map(b => `<div class="cal-booking-chip cal-chip-${b.status}">${b.time} ${b.name.split(' ')[0]}</div>`).join('')}
       ${dayB.length > 3 ? `<div class="cal-more">+${dayB.length - 3} more</div>` : ''}
     </div>`;
