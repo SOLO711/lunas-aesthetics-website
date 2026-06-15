@@ -598,6 +598,30 @@ function initBooking() {
   const timeWrap = document.getElementById('timeSlots');
   const selectedTimeInput = document.getElementById('selectedTime');
   const summary = document.getElementById('bookingSummary');
+  const addServiceBtn = document.getElementById('addServiceBtn');
+  let selectedServices = [];
+
+  function renderSelectedServices() {
+    const wrap = document.getElementById('selectedServicesWrap');
+    const list = document.getElementById('selectedServicesList');
+    if (!wrap || !list) return;
+    if (!selectedServices.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+    list.innerHTML = selectedServices.map((s, i) => `
+      <div class="selected-svc-item">
+        <div>
+          <div class="selected-svc-name">${s.name}</div>
+          <div class="selected-svc-meta">${s.price} &nbsp;·&nbsp; ${s.duration}</div>
+        </div>
+        <button type="button" class="selected-svc-remove" onclick="window._removeSelectedService(${i})">✕</button>
+      </div>`).join('');
+  }
+
+  window._removeSelectedService = i => {
+    selectedServices.splice(i, 1);
+    renderSelectedServices();
+    updateSummary();
+  };
 
   // Min date = today
   const today = new Date().toISOString().split('T')[0];
@@ -699,6 +723,7 @@ function initBooking() {
         svcSelect.appendChild(opt);
       });
       svcSelect.disabled = !catSelect.value;
+      if (addServiceBtn) addServiceBtn.disabled = true;
     });
 
     // Pre-fill from URL params (coming from services page)
@@ -790,39 +815,84 @@ function initBooking() {
 
   function updateSummary() {
     if (!summary) return;
-    const svcRaw = svcSelect?.value;
     const date = dateInput?.value;
     const time = selectedTimeInput?.value;
-    if (!svcRaw || !date || !time) { summary.style.display = 'none'; return; }
-    const svc = JSON.parse(svcRaw);
-    summary.style.display = 'block';
-    summary.querySelector('#sumService').textContent = svc.name;
-    summary.querySelector('#sumPrice').textContent = svc.price;
-    summary.querySelector('#sumDuration').textContent = svc.duration;
-    summary.querySelector('#sumDate').textContent = new Date(date + 'T00:00').toLocaleDateString('en-TT', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-    summary.querySelector('#sumTime').textContent = time;
+    if (!selectedServices.length || !date || !time) { summary.style.display = 'none'; return; }
 
-    // July promo discount
+    summary.style.display = 'block';
+
+    // Render each service as its own row
+    const sumList = document.getElementById('sumServicesList');
+    if (sumList) {
+      sumList.innerHTML = selectedServices.map(s =>
+        `<div class="summary-row"><span>${s.name}</span><span>${s.price}</span></div>`
+      ).join('');
+    }
+
+    // Duration — list all if multiple
+    const durEl = document.getElementById('sumDuration');
+    if (durEl) durEl.textContent = selectedServices.length === 1
+      ? selectedServices[0].duration
+      : selectedServices.map(s => s.duration).join(' + ');
+
+    const dateEl = document.getElementById('sumDate');
+    if (dateEl) dateEl.textContent = new Date(date + 'T00:00').toLocaleDateString('en-TT', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+    const timeEl = document.getElementById('sumTime');
+    if (timeEl) timeEl.textContent = time;
+
+    // Sum base prices
+    let totalBase = 0;
+    let hasFrom = false;
+    selectedServices.forEach(s => {
+      const m = s.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
+      if (m) totalBase += parseFloat(m[0]);
+      if (s.price.trim().toLowerCase().startsWith('from')) hasFrom = true;
+    });
+
+    const prefix = hasFrom ? 'from ' : '';
     const _td = new Date().toISOString().split('T')[0];
     const _isJuly = date.startsWith('2026-07');
     const _promoOn = _td >= LAUNCH_DATE && _td <= LAUNCH_END;
-    const _isWax = catSelect?.value === 'Waxing';
     const _discRow = document.getElementById('sumDiscountRow');
     const _totRow = document.getElementById('sumTotalRow');
-    const _pm = svc.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
-    if (_isJuly && _promoOn && !_isWax && _pm) {
-      const orig = parseFloat(_pm[0]);
-      const disc = Math.round(orig * 0.1);
-      const prefix = svc.price.trim().toLowerCase().startsWith('from') ? 'from ' : '';
-      if (_discRow) { _discRow.style.display = ''; document.getElementById('sumDiscount').textContent = `−TTD ${disc}`; }
-      if (_totRow)  { _totRow.style.display  = ''; document.getElementById('sumTotal').textContent  = `${prefix}TTD ${(orig - disc).toLocaleString()}`; }
+
+    if (_isJuly && _promoOn) {
+      let discAmt = 0;
+      selectedServices.forEach(s => {
+        if (s.category !== 'Waxing') {
+          const m = s.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
+          if (m) discAmt += Math.round(parseFloat(m[0]) * 0.1);
+        }
+      });
+      if (discAmt > 0) {
+        if (_discRow) { _discRow.style.display = ''; document.getElementById('sumDiscount').textContent = `−TTD ${discAmt}`; }
+        if (_totRow)  { _totRow.style.display  = ''; document.getElementById('sumTotal').textContent = `${prefix}TTD ${(totalBase - discAmt).toLocaleString()}`; }
+      } else {
+        if (_discRow) _discRow.style.display = 'none';
+        if (_totRow)  { _totRow.style.display = ''; document.getElementById('sumTotal').textContent = `${prefix}TTD ${totalBase.toLocaleString()}`; }
+      }
     } else {
       if (_discRow) _discRow.style.display = 'none';
-      if (_totRow)  _totRow.style.display  = 'none';
+      if (_totRow)  { _totRow.style.display = ''; document.getElementById('sumTotal').textContent = `${prefix}TTD ${totalBase.toLocaleString()}`; }
     }
   }
 
-  svcSelect?.addEventListener('change', updateSummary);
+  svcSelect?.addEventListener('change', () => {
+    if (addServiceBtn) addServiceBtn.disabled = !svcSelect.value;
+    updateSummary();
+  });
+
+  addServiceBtn?.addEventListener('click', () => {
+    if (!svcSelect.value) return;
+    const svc = JSON.parse(svcSelect.value);
+    selectedServices.push({ ...svc, category: catSelect.value });
+    renderSelectedServices();
+    catSelect.value = '';
+    svcSelect.innerHTML = '<option value="">Select a service first</option>';
+    svcSelect.disabled = true;
+    if (addServiceBtn) addServiceBtn.disabled = true;
+    updateSummary();
+  });
   dateInput?.addEventListener('change', () => {
     if (dateInput.value && dateInput.value < today) {
       dateInput.value = '';
@@ -844,20 +914,28 @@ function initBooking() {
     const fd = new FormData(form);
     // Honeypot — bots fill the hidden "website" field
     if (fd.get('website')) { form.style.display = 'none'; document.getElementById('bookingSuccess')?.style && (document.getElementById('bookingSuccess').style.display = 'block'); return; }
-    const svcRaw = svcSelect?.value;
-    if (!svcRaw) { alert('Please select a service.'); return; }
+    if (!selectedServices.length) { alert('Please add at least one service.'); return; }
     if (!selectedTimeInput?.value) { alert('Please select a time slot.'); return; }
-    const svc = JSON.parse(svcRaw);
     const dateStr = fd.get('bookDate');
     const timeStr = selectedTimeInput.value;
 
-    // July promo discount calculation
+    // July promo discount calculation (applies to non-waxing services only)
     const _subToday = new Date().toISOString().split('T')[0];
-    const _julyPromo = dateStr.startsWith('2026-07') && _subToday >= LAUNCH_DATE && _subToday <= LAUNCH_END && catSelect.value !== 'Waxing';
-    let _discAmt = null, _discTotal = null;
-    if (_julyPromo) {
-      const _m = svc.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
-      if (_m) { const _o = parseFloat(_m[0]); _discAmt = Math.round(_o * 0.1); _discTotal = _o - _discAmt; }
+    const _isJulyBooking = dateStr.startsWith('2026-07') && _subToday >= LAUNCH_DATE && _subToday <= LAUNCH_END;
+    let _discAmt = null, _totalBase = 0, _discTotal = null;
+    selectedServices.forEach(s => {
+      const _m = s.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
+      if (_m) _totalBase += parseFloat(_m[0]);
+    });
+    if (_isJulyBooking) {
+      let _d = 0;
+      selectedServices.forEach(s => {
+        if (s.category !== 'Waxing') {
+          const _m = s.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
+          if (_m) _d += Math.round(parseFloat(_m[0]) * 0.1);
+        }
+      });
+      if (_d > 0) { _discAmt = _d; _discTotal = _totalBase - _d; }
     }
 
     // Re-check blocked dates before confirming
@@ -897,13 +975,17 @@ function initBooking() {
     submitBtn.disabled = true;
     submitBtn.textContent = 'Confirming…';
 
+    const _hasFromPrice = selectedServices.some(s => s.price.trim().toLowerCase().startsWith('from'));
+    const _combinedName = selectedServices.map(s => s.name).join(' + ');
+    const _combinedPrice = (_hasFromPrice ? 'from TTD ' : 'TTD ') + _totalBase.toLocaleString();
     const booking = {
       id: Date.now(),
       name: fd.get('clientName'),
       phone: fd.get('clientPhone'),
       email: fd.get('clientEmail') || '',
-      service: svc.name,
-      price: svc.price,
+      services: selectedServices,
+      service: _combinedName,
+      price: _combinedPrice,
       discountedPrice: _discAmt ? `TTD ${_discTotal.toLocaleString()}` : null,
       promoApplied: _discAmt ? 'Grand Opening — 10% Off July' : null,
       date: dateStr,
@@ -941,13 +1023,14 @@ function initBooking() {
     });
 
     const isRequest = _bookingType === 'pending';
+    const _svcLines = selectedServices.map(s => `           • ${s.name} (${s.price})`).join('\n');
     const emailBody =
       `${isRequest ? '⚠️ BOOKING REQUEST (slot already taken — needs your review)' : '✅ NEW CONFIRMED BOOKING'}\n\n` +
       `Client:   ${booking.name}\n` +
       `Phone:    ${booking.phone}\n` +
       `Email:    ${booking.email || 'Not provided'}\n\n` +
-      `Service:  ${booking.service}\n` +
-      `Price:    ${booking.price}${booking.discountedPrice ? `\nDiscount: −TTD ${_discAmt} (Grand Opening 10% Off July)\nTotal:    ${booking.discountedPrice}` : ''}\n` +
+      `Services:\n${_svcLines}\n` +
+      `Total:    ${booking.price}${booking.discountedPrice ? `\nDiscount: −TTD ${_discAmt} (Grand Opening 10% Off July)\nFinal:    ${booking.discountedPrice}` : ''}\n` +
       `Date:     ${formattedDate}\n` +
       `Time:     ${booking.time}\n\n` +
       `Notes:    ${booking.notes || 'None'}`;
@@ -978,7 +1061,12 @@ function initBooking() {
     const successEl = document.getElementById('bookingSuccess');
     if (successEl) {
       document.getElementById('bsName').textContent = booking.name;
-      document.getElementById('bsService').textContent = booking.service;
+      const bsServiceEl = document.getElementById('bsService');
+      if (bsServiceEl) {
+        bsServiceEl.innerHTML = selectedServices.length === 1
+          ? selectedServices[0].name
+          : selectedServices.map(s => `• ${s.name}`).join('<br>');
+      }
       document.getElementById('bsDate').textContent = formattedDate;
       document.getElementById('bsTime').textContent = booking.time;
       const bsHeading = document.getElementById('bsHeading');
