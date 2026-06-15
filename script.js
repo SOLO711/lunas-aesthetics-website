@@ -740,6 +740,13 @@ function initBooking() {
             if (JSON.parse(opt.value).name === preSvc) {
               svcSelect.value = opt.value;
               svcSelect.dispatchEvent(new Event('change'));
+              // Auto-add to selectedServices (can't click the button — listener not attached yet)
+              const _preSvc = JSON.parse(opt.value);
+              selectedServices.push({ ..._preSvc, category: preCat });
+              renderSelectedServices();
+              catSelect.value = '';
+              svcSelect.innerHTML = '<option value="">Select a service first</option>';
+              svcSelect.disabled = true;
               break;
             }
           } catch (_) {}
