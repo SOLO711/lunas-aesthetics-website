@@ -14,7 +14,7 @@
 
 /* ── Launch Week Promo ── */
 const LAUNCH_DATE = '2026-06-11';
-const LAUNCH_END  = '2026-06-19';
+const LAUNCH_END  = '2026-06-15';
 
 (function initLaunchPromo() {
   const today = new Date().toISOString().split('T')[0];
@@ -502,7 +502,7 @@ async function _fsSet(key, val) {
   } catch(e) { console.warn('[Firestore] write failed [' + key + ']:', e.message); }
 }
 (async function _syncOnLoad() {
-  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates'];
+  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates', 'manual_events'];
   const results = await Promise.allSettled(keys.map(k => _fsGet(k)));
   keys.forEach((k, i) => {
     const r = results[i];
@@ -526,6 +526,20 @@ function saveBlockedDates(data) {
 function isDateBlocked(dateStr) {
   const bd = getBlockedDates();
   return (bd.days || []).includes(dateStr) || (bd.months || []).includes(dateStr.substring(0, 7));
+}
+function isSlotBlocked(dateStr, timeStr) {
+  const bd = getBlockedDates();
+  return (bd.timeSlots || []).some(s => s.date === dateStr && s.slot === timeStr);
+}
+
+/* ── Manual Events helpers ── */
+function getManualEvents() {
+  try { return JSON.parse(localStorage.getItem('lunas_manual_events') || '[]'); }
+  catch(e) { return []; }
+}
+function saveManualEvents(data) {
+  localStorage.setItem('lunas_manual_events', JSON.stringify(data));
+  _fsSet('manual_events', data);
 }
 
 async function getBookedSlots(dateStr) {
@@ -586,6 +600,36 @@ function sendClientEmail(toName, toEmail, service, price, date, time, isRequest,
     status_line:  statusLine,
     banking_info: bankingInfo,
   });
+}
+
+function calcActiveDiscount(svcs) {
+  const CAT_MAP = {
+    'cat:Facials':    'Advanced Facials',
+    'cat:Laser':      'Laser Hair Removal',
+    'cat:Body':       'Body Contouring',
+    'cat:Waxing':     'Waxing',
+    'cat:Packages':   'Spa Packages',
+    'cat:WeightLoss': 'Weight Loss & Lipo Shots',
+    'cat:Pedicures':  'Pedicures',
+    'cat:Eyebrows':   'Eyebrow Services',
+    'cat:Brightening':'Intimate Brightening',
+  };
+  const live = getSpecials().filter(s => specialStatus(s) === 'active' && s.type !== 'custom');
+  for (const sp of live) {
+    const eligible = svcs.filter(s => sp.applies === 'all' || CAT_MAP[sp.applies] === s.category);
+    if (!eligible.length) continue;
+    let discAmt = 0;
+    if (sp.type === 'percent') {
+      eligible.forEach(s => {
+        const m = s.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
+        if (m) discAmt += Math.round(parseFloat(m[0]) * sp.value / 100);
+      });
+    } else if (sp.type === 'fixed') {
+      discAmt = sp.value;
+    }
+    if (discAmt > 0) return { discAmt, specialName: sp.name };
+  }
+  return { discAmt: 0, specialName: null };
 }
 
 function initBooking() {
@@ -805,9 +849,16 @@ function initBooking() {
       btn.textContent = t;
       const slotCount = booked.filter(b => b === t).length;
       const isTaken = slotCount >= 2;
-      if (isTaken) btn.classList.add('taken-request');
+      const isAdminBlocked = isSlotBlocked(dateStr, t);
+      if (isAdminBlocked) {
+        btn.disabled = true;
+        btn.classList.add('slot-admin-blocked');
+      } else if (isTaken) {
+        btn.classList.add('taken-request');
+      }
 
       btn.addEventListener('click', () => {
+        if (isAdminBlocked) return;
         timeWrap.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         selectedTimeInput.value = t;
@@ -857,27 +908,19 @@ function initBooking() {
     });
 
     const prefix = hasFrom ? 'from ' : '';
-    const _td = new Date().toISOString().split('T')[0];
-    const _isJuly = date.startsWith('2026-07');
-    const _promoOn = _td >= LAUNCH_DATE && _td <= LAUNCH_END;
     const _discRow = document.getElementById('sumDiscountRow');
-    const _totRow = document.getElementById('sumTotalRow');
+    const _totRow  = document.getElementById('sumTotalRow');
+    const { discAmt: _discAmt, specialName: _spName } = calcActiveDiscount(selectedServices);
 
-    if (_isJuly && _promoOn) {
-      let discAmt = 0;
-      selectedServices.forEach(s => {
-        if (s.category !== 'Waxing') {
-          const m = s.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
-          if (m) discAmt += Math.round(parseFloat(m[0]) * 0.1);
-        }
-      });
-      if (discAmt > 0) {
-        if (_discRow) { _discRow.style.display = ''; document.getElementById('sumDiscount').textContent = `−TTD ${discAmt}`; }
-        if (_totRow)  { _totRow.style.display  = ''; document.getElementById('sumTotal').textContent = `${prefix}TTD ${(totalBase - discAmt).toLocaleString()}`; }
-      } else {
-        if (_discRow) _discRow.style.display = 'none';
-        if (_totRow)  { _totRow.style.display = ''; document.getElementById('sumTotal').textContent = `${prefix}TTD ${totalBase.toLocaleString()}`; }
+    if (_discAmt > 0) {
+      const _sumDiscEl   = document.getElementById('sumDiscount');
+      const _sumLabelEl  = document.getElementById('sumDiscountLabel');
+      if (_discRow) {
+        _discRow.style.display = '';
+        if (_sumLabelEl) _sumLabelEl.textContent = _spName || 'Discount';
+        if (_sumDiscEl)  _sumDiscEl.textContent  = `−TTD ${_discAmt}`;
       }
+      if (_totRow)  { _totRow.style.display = ''; document.getElementById('sumTotal').textContent = `${prefix}TTD ${(totalBase - _discAmt).toLocaleString()}`; }
     } else {
       if (_discRow) _discRow.style.display = 'none';
       if (_totRow)  { _totRow.style.display = ''; document.getElementById('sumTotal').textContent = `${prefix}TTD ${totalBase.toLocaleString()}`; }
@@ -926,24 +969,16 @@ function initBooking() {
     const dateStr = fd.get('bookDate');
     const timeStr = selectedTimeInput.value;
 
-    // July promo discount calculation (applies to non-waxing services only)
-    const _subToday = new Date().toISOString().split('T')[0];
-    const _isJulyBooking = dateStr.startsWith('2026-07') && _subToday >= LAUNCH_DATE && _subToday <= LAUNCH_END;
-    let _discAmt = null, _totalBase = 0, _discTotal = null;
+    // Active specials discount calculation
+    let _totalBase = 0;
     selectedServices.forEach(s => {
       const _m = s.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
       if (_m) _totalBase += parseFloat(_m[0]);
     });
-    if (_isJulyBooking) {
-      let _d = 0;
-      selectedServices.forEach(s => {
-        if (s.category !== 'Waxing') {
-          const _m = s.price.replace(/,/g, '').match(/\d+(\.\d+)?/);
-          if (_m) _d += Math.round(parseFloat(_m[0]) * 0.1);
-        }
-      });
-      if (_d > 0) { _discAmt = _d; _discTotal = _totalBase - _d; }
-    }
+    const { discAmt: _discAmtRaw, specialName: _spNameRaw } = calcActiveDiscount(selectedServices);
+    let _discAmt   = _discAmtRaw > 0 ? _discAmtRaw : null;
+    let _discTotal = _discAmt ? _totalBase - _discAmt : null;
+    let _spName    = _discAmt ? _spNameRaw : null;
 
     // Re-check blocked dates before confirming
     const freshBD2 = await _fsGet('blocked_dates');
@@ -994,7 +1029,7 @@ function initBooking() {
       service: _combinedName,
       price: _combinedPrice,
       discountedPrice: _discAmt ? `TTD ${_discTotal.toLocaleString()}` : null,
-      promoApplied: _discAmt ? 'Grand Opening — 10% Off July' : null,
+      promoApplied: _discAmt ? _spName : null,
       date: dateStr,
       time: timeStr,
       notes: fd.get('notes') || '',
@@ -1037,7 +1072,7 @@ function initBooking() {
       `Phone:    ${booking.phone}\n` +
       `Email:    ${booking.email || 'Not provided'}\n\n` +
       `Services:\n${_svcLines}\n` +
-      `Total:    ${booking.price}${booking.discountedPrice ? `\nDiscount: −TTD ${_discAmt} (Grand Opening 10% Off July)\nFinal:    ${booking.discountedPrice}` : ''}\n` +
+      `Total:    ${booking.price}${booking.discountedPrice ? `\nDiscount: −TTD ${_discAmt} (${_spName})\nFinal:    ${booking.discountedPrice}` : ''}\n` +
       `Date:     ${formattedDate}\n` +
       `Time:     ${booking.time}\n\n` +
       `Notes:    ${booking.notes || 'None'}`;
@@ -1470,6 +1505,18 @@ function renderBlockedDates() {
       }).join('');
     }
   }
+
+  const slotsList = document.getElementById('blockedSlotsList');
+  if (slotsList) {
+    if (!(bd.timeSlots || []).length) {
+      slotsList.innerHTML = '<span style="color:var(--text-light);font-size:0.82rem;">No time slots blocked.</span>';
+    } else {
+      slotsList.innerHTML = bd.timeSlots.map(s => {
+        const dateLabel = new Date(s.date + 'T00:00').toLocaleDateString('en-TT', { weekday: 'short', day: 'numeric', month: 'short' });
+        return `<span class="blocked-tag blocked-tag-slot">${dateLabel} · ${s.slot} <button class="blocked-tag-remove" onclick="unblockTimeSlot('${s.date}','${s.slot.replace(/'/g,'')}')">✕</button></span>`;
+      }).join('');
+    }
+  }
 }
 
 window.unblockMonth = m => {
@@ -1482,6 +1529,13 @@ window.unblockMonth = m => {
 window.unblockDay = d => {
   const bd = getBlockedDates();
   bd.days = (bd.days || []).filter(x => x !== d);
+  saveBlockedDates(bd);
+  renderBlockedDates();
+  renderCalendar();
+};
+window.unblockTimeSlot = (date, slot) => {
+  const bd = getBlockedDates();
+  bd.timeSlots = (bd.timeSlots || []).filter(s => !(s.date === date && s.slot === slot));
   saveBlockedDates(bd);
   renderBlockedDates();
   renderCalendar();
@@ -1516,6 +1570,25 @@ function initBlockedDates() {
     if (input) input.value = '';
   });
 
+  document.getElementById('blockSlotBtn')?.addEventListener('click', () => {
+    const dateInput = document.getElementById('blockSlotDateInput');
+    const timeInput = document.getElementById('blockSlotTimeInput');
+    const dateVal = dateInput?.value;
+    const timeVal = timeInput?.value;
+    if (!dateVal) { alert('Please select a date first.'); return; }
+    if (!timeVal) { alert('Please select a time first.'); return; }
+    const bd = getBlockedDates();
+    if (!(bd.timeSlots || []).some(s => s.date === dateVal && s.slot === timeVal)) {
+      bd.timeSlots = [...(bd.timeSlots || []), { date: dateVal, slot: timeVal }]
+        .sort((a, b) => a.date.localeCompare(b.date) || a.slot.localeCompare(b.slot));
+      saveBlockedDates(bd);
+      renderBlockedDates();
+      renderCalendar();
+    }
+    if (dateInput) dateInput.value = '';
+    if (timeInput) timeInput.value = '';
+  });
+
   renderBlockedDates();
 }
 
@@ -1536,6 +1609,12 @@ function renderCalendar() {
   bookings.forEach(b => {
     if (!bookingMap[b.date]) bookingMap[b.date] = [];
     bookingMap[b.date].push(b);
+  });
+  const manualEventsAll = getManualEvents();
+  const eventMap = {};
+  manualEventsAll.forEach(e => {
+    if (!eventMap[e.date]) eventMap[e.date] = [];
+    eventMap[e.date].push(e);
   });
 
   const blockedDates = getBlockedDates();
@@ -1561,12 +1640,18 @@ function renderCalendar() {
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = `${_calYear}-${String(_calMonth + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dayB = bookingMap[ds] || [];
+    const dayE = eventMap[ds] || [];
     const isToday = d === today.getDate() && _calMonth === today.getMonth() && _calYear === today.getFullYear();
     const isBlocked = isMonthBlocked || (blockedDates.days || []).includes(ds);
-    html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${isBlocked ? ' cal-blocked' : ''}${dayB.length ? ' cal-has-bookings' : ''}" onclick="selectCalDay('${ds}')">
+    const hasActivity = dayB.length > 0 || dayE.length > 0;
+    const visibleE = dayE.slice(0, 2);
+    const visibleB = dayB.slice(0, Math.max(0, 3 - visibleE.length));
+    const moreCount = (dayB.length + dayE.length) - visibleE.length - visibleB.length;
+    html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${isBlocked ? ' cal-blocked' : ''}${hasActivity ? ' cal-has-bookings' : ''}" onclick="selectCalDay('${ds}')">
       <div class="cal-day-num">${d}${isBlocked ? '<span class="cal-blocked-tag">Blocked</span>' : ''}</div>
-      ${dayB.slice(0, 3).map(b => `<div class="cal-booking-chip cal-chip-${b.status}">${b.time} ${b.name.split(' ')[0]}</div>`).join('')}
-      ${dayB.length > 3 ? `<div class="cal-more">+${dayB.length - 3} more</div>` : ''}
+      ${visibleE.map(e => `<div class="cal-booking-chip cal-chip-manual">${e.startTime} ${e.title.split(' ')[0]}</div>`).join('')}
+      ${visibleB.map(b => `<div class="cal-booking-chip cal-chip-${b.status}">${b.time} ${b.name.split(' ')[0]}</div>`).join('')}
+      ${moreCount > 0 ? `<div class="cal-more">+${moreCount} more</div>` : ''}
     </div>`;
   }
   grid.innerHTML = html;
@@ -1574,26 +1659,102 @@ function renderCalendar() {
 
 window.selectCalDay = dateStr => {
   const bookings = getDB('lunas_bookings').filter(b => b.date === dateStr);
+  const manualEntries = getManualEvents().filter(e => e.date === dateStr);
   const detail = document.getElementById('calDetail');
   if (!detail) return;
   const formatted = new Date(dateStr + 'T00:00').toLocaleDateString('en-TT', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
-  if (!bookings.length) {
-    detail.innerHTML = `<div class="cal-detail-empty"><strong>${formatted}</strong><p style="margin-top:0.5rem;">No bookings for this day.</p></div>`;
-    return;
+
+  const addEntryBtn = `<button class="btn-admin btn-admin-sm" style="white-space:nowrap;" onclick="showAddEntryForm('${dateStr}')">+ Add Entry</button>`;
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+    <h4 style="color:var(--pink-dark);margin:0;">${formatted}</h4>
+    ${addEntryBtn}
+  </div>
+  <div id="addEntryFormWrap-${dateStr}"></div>`;
+
+  const allItems = [
+    ...bookings.map(b => ({ ...b, _type: 'booking', _sortTime: b.time })),
+    ...manualEntries.map(e => ({ ...e, _type: 'manual', _sortTime: e.startTime }))
+  ].sort((a, b) => a._sortTime.localeCompare(b._sortTime));
+
+  if (!allItems.length) {
+    html += `<p style="color:var(--text-light);font-size:0.88rem;">No bookings or entries for this day.</p>`;
+  } else {
+    const bCount = bookings.length;
+    const eCount = manualEntries.length;
+    html += `<div style="font-size:0.8rem;color:var(--text-light);margin-bottom:0.75rem;">${bCount} booking${bCount !== 1 ? 's' : ''}${eCount ? ` · ${eCount} manual entr${eCount !== 1 ? 'ies' : 'y'}` : ''}</div>`;
+    html += allItems.map(item => {
+      if (item._type === 'booking') {
+        return `<div class="cal-booking-detail">
+          <div class="cal-detail-time">${item.time}</div>
+          <div class="cal-detail-info">
+            <strong>${item.name}</strong>
+            <div>${item.service} — ${item.price}</div>
+            <div class="cal-sub">${item.phone}${item.email ? ' · ' + item.email : ''}${item.notes ? ' · ' + item.notes : ''}</div>
+          </div>
+          <span class="badge badge-${item.status}">${item.status}</span>
+        </div>`;
+      } else {
+        return `<div class="cal-booking-detail cal-manual-entry">
+          <div class="cal-detail-time">${item.startTime}<br><span style="font-size:0.7rem;color:var(--text-light);">→ ${item.endTime}</span></div>
+          <div class="cal-detail-info">
+            <strong>${safe(item.title)}</strong>
+            <div style="font-size:0.78rem;color:#7C3AED;font-weight:600;">Manual Entry</div>
+          </div>
+          <button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteManualEvent('${item.id}','${dateStr}')">Remove</button>
+        </div>`;
+      }
+    }).join('');
   }
-  detail.innerHTML = `<h4 style="margin-bottom:1rem;color:var(--pink-dark);">${formatted} — ${bookings.length} booking${bookings.length > 1 ? 's' : ''}</h4>` +
-    bookings.sort((a, b) => a.time.localeCompare(b.time)).map(b => `
-      <div class="cal-booking-detail">
-        <div class="cal-detail-time">${b.time}</div>
-        <div class="cal-detail-info">
-          <strong>${b.name}</strong>
-          <div>${b.service} — ${b.price}</div>
-          <div class="cal-sub">${b.phone}${b.email ? ' · ' + b.email : ''}${b.notes ? ' · ' + b.notes : ''}</div>
-        </div>
-        <span class="badge badge-${b.status}">${b.status}</span>
-      </div>`).join('');
+  detail.innerHTML = html;
+};
+
+window.showAddEntryForm = dateStr => {
+  const wrap = document.getElementById(`addEntryFormWrap-${dateStr}`);
+  if (!wrap) return;
+  wrap.innerHTML = `<div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1rem;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem;">
+      <div style="grid-column:1/-1;">
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.3rem;">Client Name / Title</label>
+        <input id="addEntryTitle" type="text" placeholder="e.g. Walk-in — Sarah" style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.88rem;box-sizing:border-box;font-family:var(--font-body);"/>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.3rem;">Start Time</label>
+        <input id="addEntryStart" type="time" style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.88rem;box-sizing:border-box;font-family:var(--font-body);"/>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.3rem;">End Time</label>
+        <input id="addEntryEnd" type="time" style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.88rem;box-sizing:border-box;font-family:var(--font-body);"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+      <button class="btn-admin btn-admin-pink" onclick="saveManualEntry('${dateStr}')">Save Entry</button>
+      <button class="btn-admin" onclick="document.getElementById('addEntryFormWrap-${dateStr}').innerHTML=''">Cancel</button>
+    </div>
+  </div>`;
+  document.getElementById('addEntryTitle')?.focus();
+};
+
+window.saveManualEntry = dateStr => {
+  const title = document.getElementById('addEntryTitle')?.value.trim();
+  const startTime = document.getElementById('addEntryStart')?.value;
+  const endTime = document.getElementById('addEntryEnd')?.value;
+  if (!title) { alert('Please enter a client name or title.'); return; }
+  if (!startTime) { alert('Please enter a start time.'); return; }
+  if (!endTime) { alert('Please enter an end time.'); return; }
+  const events = getManualEvents();
+  events.push({ id: Date.now().toString(), date: dateStr, title, startTime, endTime });
+  saveManualEvents(events);
+  renderCalendar();
+  selectCalDay(dateStr);
+};
+
+window.deleteManualEvent = (id, dateStr) => {
+  if (!confirm('Remove this entry?')) return;
+  saveManualEvents(getManualEvents().filter(e => e.id !== id));
+  renderCalendar();
+  selectCalDay(dateStr);
 };
 
 document.getElementById('calPrev')?.addEventListener('click', () => {

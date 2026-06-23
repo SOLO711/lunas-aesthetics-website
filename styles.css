@@ -1732,6 +1732,8 @@ p { margin-bottom: 1rem; }
 .admin-search-input { flex: 1; min-width: 180px; padding: 9px 14px; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 0.87rem; font-family: var(--font-body); outline: none; transition: var(--transition); }
 .admin-search-input:focus { border-color: var(--pink-dark); }
 .btn-admin { padding: 9px 18px; border-radius: 8px; border: none; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: var(--transition); font-family: var(--font-body); }
+.btn-admin-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 6px; border: 1px solid var(--border); background: #fff; color: var(--text); }
+.btn-admin-sm:hover { background: var(--pink-bg); border-color: var(--pink-dark); color: var(--pink-dark); }
 .btn-admin-pink { background: var(--pink-dark); color: white; }
 .btn-admin-pink:hover { opacity: 0.88; }
 .btn-admin-ghost { background: #F3F4F6; color: #374151; }
@@ -2027,6 +2029,13 @@ p { margin-bottom: 1rem; }
 .time-slot.taken-request:hover { background: #FDE68A; border-color: #B45309; }
 .time-slot.taken-request.selected { background: #D97706; border-color: #D97706; color: white; }
 
+/* ── Admin-blocked Time Slot ── */
+.time-slot.slot-admin-blocked {
+  background: #F3F4F6; border-color: #E5E7EB; color: #9CA3AF;
+  cursor: not-allowed; opacity: 0.65;
+}
+.time-slot.slot-admin-blocked::after { content: 'Unavailable'; display: block; font-size: 0.58rem; font-weight: 600; margin-top: 1px; }
+
 /* ── Closed day message ── */
 .slot-closed-msg {
   padding: 0.85rem 1rem; background: #FEE2E2;
@@ -2103,12 +2112,15 @@ tr.client-blocked td { background: #FFF1F1; }
 .cal-chip-confirmed { background: #DCFCE7; color: #166534; }
 .cal-chip-completed { background: #E0E7FF; color: #3730A3; }
 .cal-chip-cancelled { background: #FEE2E2; color: #991B1B; text-decoration: line-through; }
+.cal-chip-manual { background: #EDE9FE; color: #5B21B6; }
 .cal-cell.cal-blocked { background: #FFF0F0; border-color: #FCA5A5; }
 .cal-cell.cal-blocked:hover { background: #FEE2E2; border-color: #F87171; }
 .cal-blocked-tag { font-size: 0.58rem; color: #DC2626; font-weight: 700; display: block; margin-top: 2px; letter-spacing: 0.02em; }
 .blocked-tag { display: inline-flex; align-items: center; gap: 0.35rem; background: #FEE2E2; color: #991B1B; font-size: 0.78rem; font-weight: 600; padding: 0.28rem 0.6rem; border-radius: 20px; }
+.blocked-tag.blocked-tag-slot { background: #EDE9FE; color: #5B21B6; }
 .blocked-tag-remove { background: none; border: none; cursor: pointer; color: #DC2626; font-size: 0.8rem; padding: 0; line-height: 1; transition: color 0.15s; }
 .blocked-tag-remove:hover { color: #7F1D1D; }
+.cal-manual-entry { border-left: 3px solid #7C3AED; background: #FAFAFA; }
 .cal-more { font-size: 0.67rem; color: var(--text-light); font-style: italic; }
 .cal-detail {
   background: var(--pink-bg); border-radius: var(--radius);
