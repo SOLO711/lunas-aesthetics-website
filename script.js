@@ -502,7 +502,7 @@ async function _fsSet(key, val) {
   } catch(e) { console.warn('[Firestore] write failed [' + key + ']:', e.message); }
 }
 (async function _syncOnLoad() {
-  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates', 'manual_events'];
+  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates', 'manual_events', 'course_enrollments'];
   const results = await Promise.allSettled(keys.map(k => _fsGet(k)));
   keys.forEach((k, i) => {
     const r = results[i];
@@ -530,6 +530,16 @@ function isDateBlocked(dateStr) {
 function isSlotBlocked(dateStr, timeStr) {
   const bd = getBlockedDates();
   return (bd.timeSlots || []).some(s => s.date === dateStr && s.slot === timeStr);
+}
+
+/* ── Course Enrollments helpers ── */
+function getCourseEnrollments() {
+  try { return JSON.parse(localStorage.getItem('lunas_course_enrollments') || '[]'); }
+  catch(e) { return []; }
+}
+function saveCourseEnrollments(data) {
+  localStorage.setItem('lunas_course_enrollments', JSON.stringify(data));
+  _fsSet('course_enrollments', data);
 }
 
 /* ── Manual Events helpers ── */
@@ -1335,6 +1345,24 @@ if (contactForm) {
         );
       } catch (err) { console.error('Contact confirmation email failed:', err); }
     }
+    // If this is a course enrolment, save structured record to Firestore
+    if (fd.get('subject') === 'Course Enrollment') {
+      const enrollment = {
+        id: 'ce_' + Date.now(),
+        name: fd.get('name') || '',
+        phone: fd.get('phone') || '',
+        email: fd.get('email') || '',
+        course: fd.get('courseRef') || 'Unknown Course',
+        enrolledDate: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        notes: '',
+        source: 'website',
+      };
+      const existing = getCourseEnrollments();
+      existing.unshift(enrollment);
+      saveCourseEnrollments(existing);
+    }
+
     const ok = document.getElementById('contactSuccess');
     if (ok) { ok.style.display = 'block'; setTimeout(() => ok.style.display = 'none', 6000); }
     contactForm.reset();
@@ -1450,6 +1478,7 @@ function initAdmin() {
     else if (name === 'calendar') { renderCalendar(); renderBlockedDates(); }
     else if (name === 'analytics') renderAnalytics();
     else if (name === 'specials') renderSpecials();
+    else if (name === 'course-enrollments') renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
 
     // Scroll mobile bottom nav to keep active tab visible
     const activeTab = document.querySelector(`.admin-bottom-btn[data-panel="${name}"]`);
@@ -1496,6 +1525,7 @@ function loadAdminData() {
     renderInventoryTable();
     renderCalendar();
     renderSpecials();
+    renderCourseEnrollments();
   };
   _renderAll();
   initSettings();
@@ -1796,6 +1826,130 @@ document.getElementById('calNext')?.addEventListener('click', () => {
 function safe(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+/* ── Course Enrollments Panel ── */
+const _ceStatusColor = { pending: '#F59E0B', confirmed: '#10B981', completed: '#6366F1', cancelled: '#EF4444' };
+
+function renderCourseEnrollments(search = '') {
+  const tbody = document.getElementById('ceBody');
+  if (!tbody) return;
+  const countEl = document.getElementById('ceCount');
+  const all = getCourseEnrollments();
+  const q = search.toLowerCase();
+  const filtered = q ? all.filter(e =>
+    (e.name || '').toLowerCase().includes(q) ||
+    (e.course || '').toLowerCase().includes(q) ||
+    (e.phone || '').toLowerCase().includes(q) ||
+    (e.email || '').toLowerCase().includes(q)
+  ) : all;
+
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('ceTotal', all.length);
+  setEl('cePending', all.filter(e => e.status === 'pending').length);
+  setEl('ceConfirmed', all.filter(e => e.status === 'confirmed').length);
+  setEl('ceCompleted', all.filter(e => e.status === 'completed').length);
+  if (countEl) countEl.textContent = `${filtered.length} enrolment${filtered.length !== 1 ? 's' : ''}`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:#9CA3AF;">${q ? 'No results found.' : 'No course enrolments yet. They will appear here when students enrol via the website or are added manually.'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(e => {
+    const date = e.enrolledDate ? new Date(e.enrolledDate + 'T00:00').toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    const srcBadge = e.source === 'manual'
+      ? '<span style="font-size:0.7rem;background:#EDE9FE;color:#7C3AED;padding:2px 6px;border-radius:4px;font-weight:600;">Manual</span>'
+      : '<span style="font-size:0.7rem;background:#E0F2FE;color:#0369A1;padding:2px 6px;border-radius:4px;font-weight:600;">Website</span>';
+    return `<tr>
+      <td><strong>${safe(e.name)}</strong><br>${srcBadge}</td>
+      <td>${safe(e.phone)}</td>
+      <td style="font-size:0.83rem;">${safe(e.email || '—')}</td>
+      <td style="font-size:0.83rem;font-weight:600;color:var(--pink-dark);">${safe(e.course)}</td>
+      <td style="font-size:0.82rem;color:var(--text-light);">${date}</td>
+      <td>
+        <select class="ce-status-sel" data-id="${e.id}" style="font-size:0.8rem;padding:4px 8px;border:1px solid var(--border);border-radius:6px;color:${_ceStatusColor[e.status]||'#374151'};font-weight:600;background:#fff;">
+          <option value="pending" ${e.status==='pending'?'selected':''}>Pending</option>
+          <option value="confirmed" ${e.status==='confirmed'?'selected':''}>Confirmed</option>
+          <option value="completed" ${e.status==='completed'?'selected':''}>Completed</option>
+          <option value="cancelled" ${e.status==='cancelled'?'selected':''}>Cancelled</option>
+        </select>
+      </td>
+      <td style="font-size:0.8rem;max-width:140px;color:var(--text-light);">${safe(e.notes || '—')}</td>
+      <td><button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteCourseEnrolment('${e.id}')">Remove</button></td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.ce-status-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const list = getCourseEnrollments();
+      const idx = list.findIndex(e => e.id === sel.dataset.id);
+      if (idx === -1) return;
+      list[idx].status = sel.value;
+      saveCourseEnrollments(list);
+      sel.style.color = _ceStatusColor[sel.value] || '#374151';
+    });
+  });
+}
+
+window.deleteCourseEnrolment = id => {
+  if (!confirm('Remove this enrolment record?')) return;
+  saveCourseEnrollments(getCourseEnrollments().filter(e => e.id !== id));
+  renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
+};
+
+(function initCourseEnrolments() {
+  const searchEl = document.getElementById('ceSearch');
+  if (!searchEl) return;
+
+  searchEl.addEventListener('input', () => renderCourseEnrollments(searchEl.value.toLowerCase()));
+
+  document.getElementById('exportCeBtn')?.addEventListener('click', () => {
+    const all = getCourseEnrollments();
+    if (!all.length) { alert('No enrolments to export.'); return; }
+    const headers = ['Name', 'Phone', 'Email', 'Course', 'Date Enrolled', 'Status', 'Notes', 'Source'];
+    const rows = all.map(e => [e.name, e.phone, e.email, e.course, e.enrolledDate, e.status, e.notes, e.source].map(v => `"${String(v||'').replace(/"/g,'""')}"`));
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `lunas-course-enrolments-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  });
+
+  document.getElementById('addEnrolmentBtn')?.addEventListener('click', () => {
+    const courses = JSON.parse(localStorage.getItem('lunas_courses') || '[]');
+    const courseNames = courses.map(c => c.name).filter(Boolean);
+    const modal = document.getElementById('enrolmentModal');
+    const list = document.getElementById('ceCourseSuggestions');
+    if (list) list.innerHTML = courseNames.map(n => `<option value="${safe(n)}"/>`).join('');
+    modal?.classList.add('open');
+    document.getElementById('enrolmentForm')?.reset();
+  });
+
+  document.getElementById('enrolmentModalClose')?.addEventListener('click', () => {
+    document.getElementById('enrolmentModal')?.classList.remove('open');
+  });
+
+  document.getElementById('enrolmentForm')?.addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const enrollment = {
+      id: 'ce_' + Date.now(),
+      name: fd.get('ceName') || '',
+      phone: fd.get('cePhone') || '',
+      email: fd.get('ceEmail') || '',
+      course: fd.get('ceCourse') || '',
+      enrolledDate: fd.get('ceDate') || new Date().toISOString().split('T')[0],
+      status: fd.get('ceStatus') || 'pending',
+      notes: fd.get('ceNotes') || '',
+      source: 'manual',
+    };
+    const list = getCourseEnrollments();
+    list.unshift(enrollment);
+    saveCourseEnrollments(list);
+    document.getElementById('enrolmentModal')?.classList.remove('open');
+    renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
+  });
+})();
 function fmtDate(ds) {
   if (!ds) return '—';
   return new Date(ds + 'T00:00').toLocaleDateString('en-TT', { day:'numeric', month:'short', year:'numeric' });
@@ -3010,6 +3164,8 @@ initCoursesMgr();
   if (msgEl && !msgEl.value) {
     msgEl.value = 'I am interested in enrolling in:\n' + course + '\n\nPlease contact me with more information about availability, upcoming dates, and payment options.';
   }
+  const courseRefEl = form.querySelector('[name="courseRef"]');
+  if (courseRefEl) courseRefEl.value = course;
 
   const panel = form.closest('.contact-form-panel');
   if (panel && !panel.querySelector('.course-enrol-banner')) {

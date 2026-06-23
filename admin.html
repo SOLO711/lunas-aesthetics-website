@@ -78,6 +78,9 @@
       <button class="admin-nav-btn" data-panel="analytics">
         <span class="admin-nav-icon">📈</span> Analytics
       </button>
+      <button class="admin-nav-btn" data-panel="course-enrollments">
+        <span class="admin-nav-icon">🎓</span> Enrolments
+      </button>
     </div>
     <div class="admin-nav-group">
       <div class="admin-nav-label">Promotions</div>
@@ -416,6 +419,66 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- ── Course Enrollments Panel ── -->
+    <div class="admin-panel" id="panel-course-enrollments">
+      <h2 class="admin-panel-title">🎓 Course Enrolments</h2>
+
+      <div class="stats-row" style="margin-bottom:1.5rem;">
+        <div class="stat-card stat-card-highlight">
+          <div class="stat-emoji">📋</div>
+          <div class="stat-value" id="ceTotal">0</div>
+          <div class="stat-name">Total Enrolments</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">⏳</div>
+          <div class="stat-value" id="cePending">0</div>
+          <div class="stat-name">Pending</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">✅</div>
+          <div class="stat-value" id="ceConfirmed">0</div>
+          <div class="stat-name">Confirmed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">🏆</div>
+          <div class="stat-value" id="ceCompleted">0</div>
+          <div class="stat-name">Completed</div>
+        </div>
+      </div>
+
+      <div class="admin-toolbar" style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+        <input type="text" class="admin-search-input" id="ceSearch" placeholder="Search by name or course…" style="flex:1;min-width:180px;"/>
+        <button class="btn-admin btn-admin-pink" id="addEnrolmentBtn">➕ Add Manually</button>
+        <button class="btn-admin btn-admin-ghost" id="exportCeBtn">⬇️ Export CSV</button>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-head">
+          <h3>All Enrolments</h3>
+          <span id="ceCount" style="font-size:0.82rem;color:#9CA3AF;"></span>
+        </div>
+        <div class="admin-card-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Course</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ceBody">
+              <tr><td colspan="8" style="text-align:center;padding:2rem;color:#9CA3AF;">No course enrolments yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ── Inventory Panel ── -->
@@ -895,6 +958,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
     <span>Stats</span>
   </button>
+  <button class="admin-bottom-btn" data-panel="course-enrollments" aria-label="Enrolments">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/><circle cx="12" cy="22" r="0"/></svg>
+    <span>Enrols</span>
+  </button>
   <button class="admin-bottom-btn" data-panel="services-mgr" aria-label="Services">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M18 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><line x1="8.59" y1="7.41" x2="15.42" y2="12.59"/><line x1="15.41" y1="11.41" x2="8.59" y2="16.59"/></svg>
     <span>Services</span>
@@ -908,6 +975,60 @@
     <span>Settings</span>
   </button>
 </nav>
+
+<!-- ── Manual Enrolment Modal ── -->
+<div class="modal-backdrop" id="enrolmentModal">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-head">
+      <h3>Add Enrolment Manually</h3>
+      <button class="modal-x" id="enrolmentModalClose">✕</button>
+    </div>
+    <form id="enrolmentForm">
+      <div class="form-row-2">
+        <div class="mfg">
+          <label>Student Name *</label>
+          <input type="text" name="ceName" placeholder="Jane Smith" required/>
+        </div>
+        <div class="mfg">
+          <label>Phone *</label>
+          <input type="tel" name="cePhone" placeholder="1(868) 000-0000" required/>
+        </div>
+      </div>
+      <div class="mfg">
+        <label>Email</label>
+        <input type="email" name="ceEmail" placeholder="jane@email.com"/>
+      </div>
+      <div class="mfg">
+        <label>Course *</label>
+        <input type="text" name="ceCourse" list="ceCourseSuggestions" placeholder="e.g. Full Body Waxing Course" required/>
+        <datalist id="ceCourseSuggestions"></datalist>
+      </div>
+      <div class="form-row-2">
+        <div class="mfg">
+          <label>Date Enrolled</label>
+          <input type="date" name="ceDate"/>
+        </div>
+        <div class="mfg">
+          <label>Status</label>
+          <select name="ceStatus">
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="mfg">
+        <label>Notes (deposit paid, WhatsApp contact, etc.)</label>
+        <textarea name="ceNotes" rows="2" placeholder="Optional notes…"></textarea>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn-admin btn-admin-ghost" onclick="document.getElementById('enrolmentModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn-admin btn-admin-pink">Save Enrolment</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="script.js?v=6"></script>
