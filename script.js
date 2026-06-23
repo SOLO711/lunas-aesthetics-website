@@ -1347,12 +1347,17 @@ if (contactForm) {
     }
     // If this is a course enrolment, save structured record to Firestore
     if (fd.get('subject') === 'Course Enrollment') {
+      const courseName = fd.get('courseRef') || 'Unknown Course';
+      const coursesList = JSON.parse(localStorage.getItem('lunas_courses') || '[]');
+      const matchedCourse = coursesList.find(c => c.name === courseName);
+      const amount = matchedCourse ? parseTTD(matchedCourse.price) : 0;
       const enrollment = {
         id: 'ce_' + Date.now(),
         name: fd.get('name') || '',
         phone: fd.get('phone') || '',
         email: fd.get('email') || '',
-        course: fd.get('courseRef') || 'Unknown Course',
+        course: courseName,
+        amount,
         enrolledDate: new Date().toISOString().split('T')[0],
         status: 'pending',
         notes: '',
@@ -1826,6 +1831,9 @@ document.getElementById('calNext')?.addEventListener('click', () => {
 function safe(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+function parseTTD(str) {
+  return parseFloat(String(str || '0').replace(/[^0-9.]/g, '')) || 0;
+}
 
 /* ── Course Enrollments Panel ── */
 const _ceStatusColor = { pending: '#F59E0B', confirmed: '#10B981', completed: '#6366F1', cancelled: '#EF4444' };
@@ -1843,15 +1851,20 @@ function renderCourseEnrollments(search = '') {
     (e.email || '').toLowerCase().includes(q)
   ) : all;
 
+  const revenue = all
+    .filter(e => e.status === 'confirmed' || e.status === 'completed')
+    .reduce((sum, e) => sum + (parseTTD(e.amount) || 0), 0);
+
   const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   setEl('ceTotal', all.length);
   setEl('cePending', all.filter(e => e.status === 'pending').length);
   setEl('ceConfirmed', all.filter(e => e.status === 'confirmed').length);
   setEl('ceCompleted', all.filter(e => e.status === 'completed').length);
+  setEl('ceRevenue', `TTD ${revenue.toLocaleString('en-TT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`);
   if (countEl) countEl.textContent = `${filtered.length} enrolment${filtered.length !== 1 ? 's' : ''}`;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:#9CA3AF;">${q ? 'No results found.' : 'No course enrolments yet. They will appear here when students enrol via the website or are added manually.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:#9CA3AF;">${q ? 'No results found.' : 'No course enrolments yet. They will appear here when students enrol via the website or are added manually.'}</td></tr>`;
     return;
   }
 
@@ -1860,11 +1873,14 @@ function renderCourseEnrollments(search = '') {
     const srcBadge = e.source === 'manual'
       ? '<span style="font-size:0.7rem;background:#EDE9FE;color:#7C3AED;padding:2px 6px;border-radius:4px;font-weight:600;">Manual</span>'
       : '<span style="font-size:0.7rem;background:#E0F2FE;color:#0369A1;padding:2px 6px;border-radius:4px;font-weight:600;">Website</span>';
+    const amtNum = parseTTD(e.amount);
+    const amtDisplay = amtNum > 0 ? `<span style="font-weight:700;color:#065F46;">TTD ${amtNum.toLocaleString('en-TT')}</span>` : '<span style="color:#9CA3AF;">—</span>';
     return `<tr>
       <td><strong>${safe(e.name)}</strong><br>${srcBadge}</td>
       <td>${safe(e.phone)}</td>
       <td style="font-size:0.83rem;">${safe(e.email || '—')}</td>
       <td style="font-size:0.83rem;font-weight:600;color:var(--pink-dark);">${safe(e.course)}</td>
+      <td style="font-size:0.84rem;">${amtDisplay}</td>
       <td style="font-size:0.82rem;color:var(--text-light);">${date}</td>
       <td>
         <select class="ce-status-sel" data-id="${e.id}" style="font-size:0.8rem;padding:4px 8px;border:1px solid var(--border);border-radius:6px;color:${_ceStatusColor[e.status]||'#374151'};font-weight:600;background:#fff;">
@@ -1938,6 +1954,7 @@ window.deleteCourseEnrolment = id => {
       phone: fd.get('cePhone') || '',
       email: fd.get('ceEmail') || '',
       course: fd.get('ceCourse') || '',
+      amount: parseTTD(fd.get('ceAmount')),
       enrolledDate: fd.get('ceDate') || new Date().toISOString().split('T')[0],
       status: fd.get('ceStatus') || 'pending',
       notes: fd.get('ceNotes') || '',
