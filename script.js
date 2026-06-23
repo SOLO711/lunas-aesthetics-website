@@ -542,18 +542,47 @@ function saveManualEvents(data) {
   _fsSet('manual_events', data);
 }
 
+function _to12hr(t24) {
+  const [h, m] = t24.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+}
+
 async function getBookedSlots(dateStr) {
+  const bookingTimes = [];
+  const manualTimes = [];
+
   try {
     const allBookings = await _fsGet('bookings');
     if (allBookings) {
-      return allBookings
+      bookingTimes.push(...allBookings
         .filter(b => b.date === dateStr && b.status !== 'cancelled')
-        .map(b => b.time);
+        .map(b => b.time));
+    } else {
+      bookingTimes.push(...getDB('lunas_bookings')
+        .filter(b => b.date === dateStr && b.status !== 'cancelled')
+        .map(b => b.time));
     }
-  } catch(e) {}
-  return getDB('lunas_bookings')
-    .filter(b => b.date === dateStr && b.status !== 'cancelled')
-    .map(b => b.time);
+  } catch(e) {
+    bookingTimes.push(...getDB('lunas_bookings')
+      .filter(b => b.date === dateStr && b.status !== 'cancelled')
+      .map(b => b.time));
+  }
+
+  try {
+    const allManual = await _fsGet('manual_events');
+    const source = allManual || getManualEvents();
+    manualTimes.push(...source
+      .filter(e => e.date === dateStr && e.startTime)
+      .map(e => _to12hr(e.startTime)));
+  } catch(e) {
+    manualTimes.push(...getManualEvents()
+      .filter(e => e.date === dateStr && e.startTime)
+      .map(e => _to12hr(e.startTime)));
+  }
+
+  return [...bookingTimes, ...manualTimes];
 }
 
 async function saveBookingRecord(booking) {
