@@ -1760,13 +1760,16 @@ window.selectCalDay = dateStr => {
           <span class="badge badge-${item.status}">${item.status}</span>
         </div>`;
       } else {
-        return `<div class="cal-booking-detail cal-manual-entry">
+        return `<div class="cal-booking-detail cal-manual-entry" id="manual-entry-${item.id}">
           <div class="cal-detail-time">${item.startTime}<br><span style="font-size:0.7rem;color:var(--text-light);">→ ${item.endTime}</span></div>
           <div class="cal-detail-info">
             <strong>${safe(item.title)}</strong>
             <div style="font-size:0.78rem;color:#7C3AED;font-weight:600;">Manual Entry</div>
           </div>
-          <button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteManualEvent('${item.id}','${dateStr}')">Remove</button>
+          <div style="display:flex;gap:0.4rem;">
+            <button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#EDE9FE;color:#6D28D9;border:1px solid #C4B5FD;" onclick="editManualEvent('${item.id}','${dateStr}')">Edit</button>
+            <button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteManualEvent('${item.id}','${dateStr}')">Remove</button>
+          </div>
         </div>`;
       }
     }).join('');
@@ -1817,6 +1820,50 @@ window.saveManualEntry = dateStr => {
 window.deleteManualEvent = (id, dateStr) => {
   if (!confirm('Remove this entry?')) return;
   saveManualEvents(getManualEvents().filter(e => e.id !== id));
+  renderCalendar();
+  selectCalDay(dateStr);
+};
+
+window.editManualEvent = (id, dateStr) => {
+  const entry = getManualEvents().find(e => e.id === id);
+  if (!entry) return;
+  const wrap = document.getElementById(`manual-entry-${id}`);
+  if (!wrap) return;
+  const inputStyle = 'width:100%;padding:0.5rem 0.7rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.85rem;box-sizing:border-box;font-family:var(--font-body);';
+  wrap.innerHTML = `
+    <div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;padding:0.75rem;background:#FAF5FF;border-radius:var(--radius-sm);">
+      <div style="grid-column:1/-1;">
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.25rem;">Client Name / Title</label>
+        <input id="editEntryTitle-${id}" type="text" value="${safe(entry.title)}" style="${inputStyle}"/>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.25rem;">Start Time</label>
+        <input id="editEntryStart-${id}" type="time" value="${entry.startTime}" style="${inputStyle}"/>
+      </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.25rem;">End Time</label>
+        <input id="editEntryEnd-${id}" type="time" value="${entry.endTime}" style="${inputStyle}"/>
+      </div>
+      <div style="grid-column:1/-1;display:flex;gap:0.5rem;margin-top:0.25rem;">
+        <button class="btn-admin btn-admin-pink" style="font-size:0.8rem;" onclick="saveEditManualEvent('${id}','${dateStr}')">Save Changes</button>
+        <button class="btn-admin btn-admin-ghost" style="font-size:0.8rem;" onclick="selectCalDay('${dateStr}')">Cancel</button>
+      </div>
+    </div>`;
+  document.getElementById(`editEntryTitle-${id}`)?.focus();
+};
+
+window.saveEditManualEvent = (id, dateStr) => {
+  const title = document.getElementById(`editEntryTitle-${id}`)?.value.trim();
+  const startTime = document.getElementById(`editEntryStart-${id}`)?.value;
+  const endTime = document.getElementById(`editEntryEnd-${id}`)?.value;
+  if (!title) { alert('Please enter a client name or title.'); return; }
+  if (!startTime) { alert('Please enter a start time.'); return; }
+  if (!endTime) { alert('Please enter an end time.'); return; }
+  const events = getManualEvents();
+  const idx = events.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  events[idx] = { ...events[idx], title, startTime, endTime };
+  saveManualEvents(events);
   renderCalendar();
   selectCalDay(dateStr);
 };
