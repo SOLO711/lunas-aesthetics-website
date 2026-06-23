@@ -1902,7 +1902,7 @@ function renderCourseEnrollments(search = '') {
       if (idx === -1) return;
       list[idx].status = sel.value;
       saveCourseEnrollments(list);
-      sel.style.color = _ceStatusColor[sel.value] || '#374151';
+      renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
     });
   });
 }
