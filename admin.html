@@ -8,7 +8,7 @@
   <meta name="referrer" content="no-referrer"/>
   <meta name="robots" content="noindex, nofollow"/>
   <title>Admin | Luna's Esthetics</title>
-  <link rel="stylesheet" href="styles.css?v=8"/>
+  <link rel="stylesheet" href="styles.css?v=9"/>
 </head>
 <body class="admin-page">
 
@@ -728,6 +728,79 @@
   </div>
 </div>
 
+<!-- ── Edit Booking Modal ── -->
+<div class="modal-backdrop" id="editBookingModal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-head">
+      <h3>Edit Booking</h3>
+      <button class="modal-x" id="editBookingClose">✕</button>
+    </div>
+    <form id="editBookingForm">
+      <input type="hidden" id="ebId"/>
+      <div style="padding:1.5rem 1.5rem 0;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="mfg" style="margin:0;">
+          <label>Full Name *</label>
+          <input type="text" id="ebName" required/>
+        </div>
+        <div class="mfg" style="margin:0;">
+          <label>Phone *</label>
+          <input type="tel" id="ebPhone" required/>
+        </div>
+        <div class="mfg" style="margin:0;grid-column:1/-1;">
+          <label>Email</label>
+          <input type="email" id="ebEmail"/>
+        </div>
+        <div class="mfg" style="margin:0;grid-column:1/-1;">
+          <label>Service</label>
+          <input type="text" id="ebService"/>
+        </div>
+        <div class="mfg" style="margin:0;">
+          <label>Price</label>
+          <input type="text" id="ebPrice" placeholder="TTD 500"/>
+        </div>
+        <div class="mfg" style="margin:0;">
+          <label>Esthetician</label>
+          <select id="ebEsthetician">
+            <option value="chel-c">Chel-C</option>
+            <option value="timothy">Timothy</option>
+          </select>
+        </div>
+        <div class="mfg" style="margin:0;">
+          <label>Date *</label>
+          <input type="date" id="ebDate" required/>
+        </div>
+        <div class="mfg" style="margin:0;">
+          <label>Time *</label>
+          <select id="ebTime" required>
+            <option value="10:00 AM">10:00 AM</option>
+            <option value="10:30 AM">10:30 AM</option>
+            <option value="11:00 AM">11:00 AM</option>
+            <option value="11:30 AM">11:30 AM</option>
+            <option value="12:00 PM">12:00 PM</option>
+            <option value="12:30 PM">12:30 PM</option>
+            <option value="1:00 PM">1:00 PM</option>
+            <option value="1:30 PM">1:30 PM</option>
+            <option value="2:00 PM">2:00 PM</option>
+            <option value="2:30 PM">2:30 PM</option>
+            <option value="3:00 PM">3:00 PM</option>
+            <option value="3:30 PM">3:30 PM</option>
+            <option value="4:00 PM">4:00 PM</option>
+            <option value="4:30 PM">4:30 PM</option>
+          </select>
+        </div>
+        <div class="mfg" style="margin:0;grid-column:1/-1;">
+          <label>Notes</label>
+          <textarea id="ebNotes" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn-admin btn-admin-ghost" id="editBookingCancel">Cancel</button>
+        <button type="submit" class="btn-admin" style="background:var(--adm-pink);color:white;border-color:var(--adm-pink);">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ── Cancel Reason Modal ── -->
 <div class="modal-backdrop" id="cancelReasonModal">
   <div class="modal-box" style="max-width:440px;">
@@ -1044,6 +1117,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="script.js?v=9"></script>
+<script src="script.js?v=10"></script>
 </body>
 </html>

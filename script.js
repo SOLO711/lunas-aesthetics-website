@@ -2121,7 +2121,10 @@ function renderBookingsTable(query = '') {
         </select>
       </td>
       <td style="font-size:0.78rem;color:#6B7280;max-width:160px;">${b.cancelReason ? `<span title="${safe(b.cancelReason)}" style="color:#DC2626;">⚠ ${safe(b.cancelReason.length>40?b.cancelReason.slice(0,40)+'…':b.cancelReason)}</span>` : '—'}</td>
-      <td><button class="tbl-btn tbl-delete" onclick="deleteBooking(${b.id})">Delete</button></td>
+      <td style="white-space:nowrap;">
+        <button class="tbl-btn tbl-edit-btn" onclick="editBooking(${b.id})" style="margin-right:4px;">Edit</button>
+        <button class="tbl-btn tbl-delete" onclick="deleteBooking(${b.id})">Delete</button>
+      </td>
     </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:#9CA3AF;padding:2rem">No bookings found</td></tr>';
 }
 
@@ -2154,6 +2157,47 @@ window.deleteBooking = id => {
   setDB('lunas_bookings', getDB('lunas_bookings').filter(b => b.id !== id));
   renderBookingsTable(); renderDashboard(); renderCalendar();
 };
+
+window.editBooking = id => {
+  const b = getDB('lunas_bookings').find(x => x.id === id);
+  if (!b) return;
+  document.getElementById('ebId').value           = id;
+  document.getElementById('ebName').value         = b.name || '';
+  document.getElementById('ebPhone').value        = b.phone || '';
+  document.getElementById('ebEmail').value        = b.email || '';
+  document.getElementById('ebService').value      = b.service || '';
+  document.getElementById('ebPrice').value        = b.price || '';
+  document.getElementById('ebEsthetician').value  = b.esthetician || 'chel-c';
+  document.getElementById('ebDate').value         = b.date || '';
+  document.getElementById('ebTime').value         = b.time || '';
+  document.getElementById('ebNotes').value        = b.notes || '';
+  document.getElementById('editBookingModal').classList.add('open');
+};
+
+document.getElementById('editBookingForm')?.addEventListener('submit', e => {
+  e.preventDefault();
+  const id = Number(document.getElementById('ebId').value);
+  const bookings = getDB('lunas_bookings');
+  const b = bookings.find(x => x.id === id);
+  if (!b) return;
+  b.name        = document.getElementById('ebName').value.trim();
+  b.phone       = document.getElementById('ebPhone').value.trim();
+  b.email       = document.getElementById('ebEmail').value.trim();
+  b.service     = document.getElementById('ebService').value.trim();
+  b.price       = document.getElementById('ebPrice').value.trim();
+  b.esthetician = document.getElementById('ebEsthetician').value;
+  b.date        = document.getElementById('ebDate').value;
+  b.time        = document.getElementById('ebTime').value;
+  b.notes       = document.getElementById('ebNotes').value.trim();
+  setDB('lunas_bookings', bookings);
+  document.getElementById('editBookingModal').classList.remove('open');
+  renderBookingsTable(); renderDashboard(); renderCalendar();
+});
+
+['editBookingClose','editBookingCancel'].forEach(id => {
+  document.getElementById(id)?.addEventListener('click', () =>
+    document.getElementById('editBookingModal').classList.remove('open'));
+});
 
 /* Cancel-reason modal handlers */
 document.getElementById('cancelReasonForm')?.addEventListener('submit', e => {
