@@ -559,9 +559,18 @@ function _to12hr(t24) {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
+// Returns every 30-min booking slot string (12hr) that falls inside [startTime, endTime)
+function _manualBlockedSlots(startTime, endTime) {
+  const slots24 = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30'];
+  const toMins = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const start = toMins(startTime);
+  const end   = toMins(endTime);
+  return slots24.filter(t => { const m = toMins(t); return m >= start && m < end; }).map(_to12hr);
+}
+
 async function getBookedSlots(dateStr) {
   const bookingTimes = [];
-  const manualTimes = [];
+  const manualBlocked = [];
 
   try {
     const allBookings = await _fsGet('bookings');
@@ -583,16 +592,16 @@ async function getBookedSlots(dateStr) {
   try {
     const allManual = await _fsGet('manual_events');
     const source = allManual || getManualEvents();
-    manualTimes.push(...source
-      .filter(e => e.date === dateStr && e.startTime)
-      .map(e => _to12hr(e.startTime)));
+    manualBlocked.push(...source
+      .filter(e => e.date === dateStr && e.startTime && e.endTime)
+      .flatMap(e => _manualBlockedSlots(e.startTime, e.endTime)));
   } catch(e) {
-    manualTimes.push(...getManualEvents()
-      .filter(e => e.date === dateStr && e.startTime)
-      .map(e => _to12hr(e.startTime)));
+    manualBlocked.push(...getManualEvents()
+      .filter(e => e.date === dateStr && e.startTime && e.endTime)
+      .flatMap(e => _manualBlockedSlots(e.startTime, e.endTime)));
   }
 
-  return [...bookingTimes, ...manualTimes];
+  return { booked: bookingTimes, manualBlocked };
 }
 
 async function saveBookingRecord(booking) {
@@ -877,7 +886,7 @@ function initBooking() {
     }
 
     timeWrap.innerHTML = '<span style="color:var(--text-light);font-size:0.84rem;padding:0.4rem 0;display:block;">Checking availability…</span>';
-    const booked = await getBookedSlots(dateStr);
+    const { booked, manualBlocked } = await getBookedSlots(dateStr);
     timeWrap.innerHTML = '';
     if (requestNotice) requestNotice.style.display = 'none';
 
@@ -889,7 +898,8 @@ function initBooking() {
       const slotCount = booked.filter(b => b === t).length;
       const isTaken = slotCount >= 2;
       const isAdminBlocked = isSlotBlocked(dateStr, t);
-      if (isAdminBlocked) {
+      const isManualBlocked = manualBlocked.includes(t);
+      if (isAdminBlocked || isManualBlocked) {
         btn.disabled = true;
         btn.classList.add('slot-admin-blocked');
       } else if (isTaken) {
@@ -897,7 +907,7 @@ function initBooking() {
       }
 
       btn.addEventListener('click', () => {
-        if (isAdminBlocked) return;
+        if (isAdminBlocked || isManualBlocked) return;
         timeWrap.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         selectedTimeInput.value = t;
