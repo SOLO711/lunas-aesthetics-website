@@ -1041,9 +1041,9 @@ function initBooking() {
     }
 
     // Re-check slot availability before confirming
-    const booked = await getBookedSlots(dateStr);
-    if (booked.filter(b => b === timeStr).length >= 2) {
-      alert('This time slot was just taken. Please choose a different time.');
+    const { booked: freshBooked, manualBlocked: freshManual } = await getBookedSlots(dateStr);
+    if (freshBooked.filter(b => b === timeStr).length >= 2 || freshManual.includes(timeStr)) {
+      alert('This time is no longer available. Please choose a different time.');
       await renderTimeSlots(dateStr);
       selectedTimeInput.value = '';
       updateSummary();
