@@ -2328,10 +2328,20 @@ function _destroyChart(key) {
   if (_anCharts[key]) { _anCharts[key].destroy(); delete _anCharts[key]; }
 }
 
-function renderAnalytics(days) {
+async function renderAnalytics(days) {
   if (days) _anDays = days;
-  const bookings = getDB('lunas_bookings');
-  const clients  = getDB('lunas_clients');
+
+  // Pull fresh data from Firestore so analytics is always accurate
+  const [fsBook, fsCl, fsEnr] = await Promise.all([
+    _fsGet('bookings'), _fsGet('clients'), _fsGet('course_enrollments')
+  ]);
+  if (fsBook) localStorage.setItem('lunas_bookings',           JSON.stringify(fsBook));
+  if (fsCl)   localStorage.setItem('lunas_clients',            JSON.stringify(fsCl));
+  if (fsEnr)  localStorage.setItem('lunas_course_enrollments', JSON.stringify(fsEnr));
+
+  const bookings    = getDB('lunas_bookings');
+  const clients     = getDB('lunas_clients');
+  const enrollments = getCourseEnrollments();
 
   const now = new Date();
   const toStr = d => d.toISOString().split('T')[0];
@@ -2346,10 +2356,20 @@ function renderAnalytics(days) {
   const inPrev = bookings.filter(b => b.date >= prevStr && b.date < curStr  && b.status !== 'cancelled');
   const allCur = bookings.filter(b => b.date >= curStr  && b.date <= nowStr);
 
-  const curRev  = inCur.reduce((s, b)  => s + _parsePrice(b.price), 0);
-  const prevRev = inPrev.reduce((s, b) => s + _parsePrice(b.price), 0);
-  const curAvg  = inCur.length  ? curRev  / inCur.length  : 0;
-  const prevAvg = inPrev.length ? prevRev / inPrev.length : 0;
+  // Course enrollments: only confirmed or completed count toward revenue
+  const enrCur  = enrollments.filter(e => e.enrolledDate >= curStr  && e.enrolledDate <= nowStr && (e.status === 'confirmed' || e.status === 'completed'));
+  const enrPrev = enrollments.filter(e => e.enrolledDate >= prevStr && e.enrolledDate < curStr  && (e.status === 'confirmed' || e.status === 'completed'));
+
+  // Revenue = service bookings (use discountedPrice if promo applied) + course enrollments
+  const curBookRev  = inCur.reduce((s, b)  => s + _parsePrice(b.discountedPrice || b.price), 0);
+  const prevBookRev = inPrev.reduce((s, b) => s + _parsePrice(b.discountedPrice || b.price), 0);
+  const curEnrRev   = enrCur.reduce((s, e)  => s + parseTTD(e.amount), 0);
+  const prevEnrRev  = enrPrev.reduce((s, e) => s + parseTTD(e.amount), 0);
+  const curRev  = curBookRev  + curEnrRev;
+  const prevRev = prevBookRev + prevEnrRev;
+
+  const curAvg  = inCur.length  ? curBookRev  / inCur.length  : 0;
+  const prevAvg = inPrev.length ? prevBookRev / inPrev.length : 0;
 
   const knownPhones = new Set(bookings.filter(b => b.date < curStr).map(b => b.phone));
   const newClients  = inCur.filter(b => !knownPhones.has(b.phone));
@@ -2377,9 +2397,10 @@ function renderAnalytics(days) {
       const ws = new Date(now); ws.setDate(now.getDate() - (w + 1) * 7);
       const we = new Date(now); we.setDate(now.getDate() - w * 7);
       const wsS = toStr(ws), weS = toStr(we);
-      const wb = bookings.filter(b => b.date >= wsS && b.date < weS && b.status !== 'cancelled');
+      const wb  = bookings.filter(b => b.date >= wsS && b.date < weS && b.status !== 'cancelled');
+      const we2 = enrollments.filter(e => e.enrolledDate >= wsS && e.enrolledDate < weS && (e.status === 'confirmed' || e.status === 'completed'));
       labels.push(`Wk ${4 - w}`);
-      revData.push(wb.reduce((s, b) => s + _parsePrice(b.price), 0));
+      revData.push(wb.reduce((s, b) => s + _parsePrice(b.discountedPrice || b.price), 0) + we2.reduce((s, e) => s + parseTTD(e.amount), 0));
       bookData.push(wb.length);
     }
   } else {
@@ -2387,9 +2408,10 @@ function renderAnalytics(days) {
     for (let m = months - 1; m >= 0; m--) {
       const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
       const mStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const mb = bookings.filter(b => b.date && b.date.startsWith(mStr) && b.status !== 'cancelled');
+      const mb  = bookings.filter(b => b.date && b.date.startsWith(mStr) && b.status !== 'cancelled');
+      const me2 = enrollments.filter(e => e.enrolledDate && e.enrolledDate.startsWith(mStr) && (e.status === 'confirmed' || e.status === 'completed'));
       labels.push(MONTH_SHORT[d.getMonth()]);
-      revData.push(mb.reduce((s, b) => s + _parsePrice(b.price), 0));
+      revData.push(mb.reduce((s, b) => s + _parsePrice(b.discountedPrice || b.price), 0) + me2.reduce((s, e) => s + parseTTD(e.amount), 0));
       bookData.push(mb.length);
     }
   }
