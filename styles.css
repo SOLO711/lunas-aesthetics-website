@@ -2036,6 +2036,27 @@ p { margin-bottom: 1rem; }
 }
 .time-slot.slot-admin-blocked::after { content: 'Reserved'; display: block; font-size: 0.58rem; font-weight: 600; margin-top: 1px; }
 
+/* ── Booked Time Slot (esthetician at capacity) ── */
+.time-slot.slot-booked {
+  background: #F3F4F6; border-color: #E5E7EB; color: #9CA3AF;
+  cursor: not-allowed; opacity: 0.65;
+}
+.time-slot.slot-booked::after { content: 'Booked'; display: block; font-size: 0.58rem; font-weight: 600; margin-top: 1px; }
+
+/* ── Esthetician Picker ── */
+.esth-picker { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.esth-btn {
+  flex: 1; min-width: 120px; padding: 10px 14px;
+  border: 2px solid var(--border); border-radius: var(--radius-sm);
+  background: none; font-family: var(--font-body); font-size: 0.84rem;
+  font-weight: 600; color: var(--text); cursor: pointer;
+  transition: var(--transition); text-align: center; line-height: 1.3;
+}
+.esth-btn small { display: block; font-size: 0.68rem; font-weight: 400; color: var(--text-light); margin-top: 1px; }
+.esth-btn:hover { border-color: var(--pink-dark); color: var(--pink-dark); }
+.esth-btn.active { background: var(--pink-dark); border-color: var(--pink-dark); color: #fff; }
+.esth-btn.active small { color: rgba(255,255,255,0.75); }
+
 /* ── Closed day message ── */
 .slot-closed-msg {
   padding: 0.85rem 1rem; background: #FEE2E2;

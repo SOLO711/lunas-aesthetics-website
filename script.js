@@ -569,24 +569,24 @@ function _manualBlockedSlots(startTime, endTime) {
 }
 
 async function getBookedSlots(dateStr) {
-  const bookingTimes = [];
+  const chelcBooked = [];
+  const timothyBooked = [];
   const manualBlocked = [];
+
+  function _categorize(bookings) {
+    bookings
+      .filter(b => b.date === dateStr && b.status !== 'cancelled')
+      .forEach(b => {
+        if (b.esthetician === 'timothy') timothyBooked.push(b.time);
+        else chelcBooked.push(b.time);
+      });
+  }
 
   try {
     const allBookings = await _fsGet('bookings');
-    if (allBookings) {
-      bookingTimes.push(...allBookings
-        .filter(b => b.date === dateStr && b.status !== 'cancelled')
-        .map(b => b.time));
-    } else {
-      bookingTimes.push(...getDB('lunas_bookings')
-        .filter(b => b.date === dateStr && b.status !== 'cancelled')
-        .map(b => b.time));
-    }
+    _categorize(allBookings || getDB('lunas_bookings'));
   } catch(e) {
-    bookingTimes.push(...getDB('lunas_bookings')
-      .filter(b => b.date === dateStr && b.status !== 'cancelled')
-      .map(b => b.time));
+    _categorize(getDB('lunas_bookings'));
   }
 
   try {
@@ -601,7 +601,7 @@ async function getBookedSlots(dateStr) {
       .flatMap(e => _manualBlockedSlots(e.startTime, e.endTime)));
   }
 
-  return { booked: bookingTimes, manualBlocked };
+  return { chelcBooked, timothyBooked, manualBlocked };
 }
 
 async function saveBookingRecord(booking) {
@@ -712,6 +712,7 @@ function initBooking() {
   window._removeSelectedService = i => {
     selectedServices.splice(i, 1);
     renderSelectedServices();
+    updateEstheticianPicker();
     updateSummary();
   };
 
@@ -816,6 +817,7 @@ function initBooking() {
       });
       svcSelect.disabled = !catSelect.value;
       if (addServiceBtn) addServiceBtn.disabled = true;
+      updateEstheticianPicker();
     });
 
     // Pre-fill from URL params (coming from services page)
@@ -857,6 +859,28 @@ function initBooking() {
   const times = ['10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM'];
 
   let _bookingType = 'confirmed';
+  let _selectedEsthetician = 'chel-c'; // 'chel-c' | 'timothy'
+
+  function updateEstheticianPicker() {
+    const esthGroup = document.getElementById('estheticianGroup');
+    if (!esthGroup) return;
+    const allFacials = selectedServices.length === 0 || selectedServices.every(s => s.category === 'Advanced Facials');
+    const show = catSelect?.value === 'Advanced Facials' && allFacials;
+    esthGroup.style.display = show ? '' : 'none';
+    if (!show) {
+      _selectedEsthetician = 'chel-c';
+      esthGroup.querySelectorAll('.esth-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.esth === 'chel-c'));
+    }
+  }
+
+  document.querySelectorAll('.esth-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _selectedEsthetician = btn.dataset.esth;
+      document.querySelectorAll('.esth-btn').forEach(b => b.classList.toggle('active', b === btn));
+      if (dateInput?.value) renderTimeSlots(dateInput.value);
+    });
+  });
 
   async function renderTimeSlots(dateStr) {
     if (!timeWrap) return;
@@ -886,7 +910,7 @@ function initBooking() {
     }
 
     timeWrap.innerHTML = '<span style="color:var(--text-light);font-size:0.84rem;padding:0.4rem 0;display:block;">Checking availability…</span>';
-    const { booked, manualBlocked } = await getBookedSlots(dateStr);
+    const { chelcBooked, timothyBooked, manualBlocked } = await getBookedSlots(dateStr);
     timeWrap.innerHTML = '';
     if (requestNotice) requestNotice.style.display = 'none';
 
@@ -895,24 +919,24 @@ function initBooking() {
       btn.type = 'button';
       btn.className = 'time-slot';
       btn.textContent = t;
-      const slotCount = booked.filter(b => b === t).length;
-      const isTaken = slotCount >= 2;
+      const isTaken = (_selectedEsthetician === 'timothy' ? timothyBooked : chelcBooked).includes(t);
       const isAdminBlocked = isSlotBlocked(dateStr, t);
       const isManualBlocked = manualBlocked.includes(t);
       if (isAdminBlocked || isManualBlocked) {
         btn.disabled = true;
         btn.classList.add('slot-admin-blocked');
       } else if (isTaken) {
-        btn.classList.add('taken-request');
+        btn.disabled = true;
+        btn.classList.add('slot-booked');
       }
 
       btn.addEventListener('click', () => {
-        if (isAdminBlocked || isManualBlocked) return;
+        if (isAdminBlocked || isManualBlocked || isTaken) return;
         timeWrap.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         selectedTimeInput.value = t;
-        _bookingType = isTaken ? 'pending' : 'confirmed';
-        if (requestNotice) requestNotice.style.display = isTaken ? 'block' : 'none';
+        _bookingType = 'confirmed';
+        if (requestNotice) requestNotice.style.display = 'none';
         updateSummary();
       });
 
@@ -990,6 +1014,7 @@ function initBooking() {
     svcSelect.innerHTML = '<option value="">Select a service first</option>';
     svcSelect.disabled = true;
     if (addServiceBtn) addServiceBtn.disabled = true;
+    updateEstheticianPicker();
     updateSummary();
   });
   dateInput?.addEventListener('change', () => {
@@ -1041,8 +1066,9 @@ function initBooking() {
     }
 
     // Re-check slot availability before confirming
-    const { booked: freshBooked, manualBlocked: freshManual } = await getBookedSlots(dateStr);
-    if (freshBooked.filter(b => b === timeStr).length >= 2 || freshManual.includes(timeStr)) {
+    const { chelcBooked: _fc, timothyBooked: _ft, manualBlocked: freshManual } = await getBookedSlots(dateStr);
+    const freshEsthBooked = _selectedEsthetician === 'timothy' ? _ft : _fc;
+    if (freshEsthBooked.includes(timeStr) || freshManual.includes(timeStr)) {
       alert('This time is no longer available. Please choose a different time.');
       await renderTimeSlots(dateStr);
       selectedTimeInput.value = '';
@@ -1083,6 +1109,7 @@ function initBooking() {
       time: timeStr,
       notes: fd.get('notes') || '',
       status: _bookingType,
+      esthetician: _selectedEsthetician,
       created: new Date().toISOString(),
     };
 
@@ -1123,7 +1150,8 @@ function initBooking() {
       `Services:\n${_svcLines}\n` +
       `Total:    ${booking.price}${booking.discountedPrice ? `\nDiscount: −TTD ${_discAmt} (${_spName})\nFinal:    ${booking.discountedPrice}` : ''}\n` +
       `Date:     ${formattedDate}\n` +
-      `Time:     ${booking.time}\n\n` +
+      `Time:     ${booking.time}\n` +
+      `Esthetician: ${_selectedEsthetician === 'timothy' ? 'Timothy' : 'Chel-C'}\n\n` +
       `Notes:    ${booking.notes || 'None'}`;
 
     // Send business notification
@@ -2086,6 +2114,7 @@ function renderBookingsTable(query = '') {
       <td>${safe(b.price)}</td>
       <td>${fmtDate(b.date)}</td>
       <td>${safe(b.time)}</td>
+      <td>${b.esthetician === 'timothy' ? 'Timothy' : 'Chel-C'}</td>
       <td>
         <select class="tbl-btn tbl-edit" data-prev="${safe(b.status)}" onchange="updateBookingStatus(${b.id},this.value,this)" style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:0.78rem;cursor:pointer;">
           ${['pending','confirmed','completed','cancelled'].map(s => `<option value="${s}" ${b.status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
@@ -2093,7 +2122,7 @@ function renderBookingsTable(query = '') {
       </td>
       <td style="font-size:0.78rem;color:#6B7280;max-width:160px;">${b.cancelReason ? `<span title="${safe(b.cancelReason)}" style="color:#DC2626;">⚠ ${safe(b.cancelReason.length>40?b.cancelReason.slice(0,40)+'…':b.cancelReason)}</span>` : '—'}</td>
       <td><button class="tbl-btn tbl-delete" onclick="deleteBooking(${b.id})">Delete</button></td>
-    </tr>`).join('') : '<tr><td colspan="9" style="text-align:center;color:#9CA3AF;padding:2rem">No bookings found</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:#9CA3AF;padding:2rem">No bookings found</td></tr>';
 }
 
 window.updateBookingStatus = (id, status, selectEl) => {

@@ -13,7 +13,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
   <meta name="referrer" content="strict-origin-when-cross-origin"/>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%238B4F1C'/><text y='74' x='16' font-size='70' font-family='Georgia,serif' fill='%23C9A84C'>L</text></svg>"/>
-  <link rel="stylesheet" href="styles.css?v=7"/>
+  <link rel="stylesheet" href="styles.css?v=8"/>
 </head>
 <body>
 
@@ -73,6 +73,14 @@
           <div id="selectedServicesWrap" style="display:none;margin-bottom:0.5rem;">
             <label style="font-size:0.78rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-light);display:block;margin-bottom:0.5rem;">Selected Services</label>
             <div id="selectedServicesList"></div>
+          </div>
+
+          <div class="form-group" id="estheticianGroup" style="display:none;">
+            <label>Choose Your Esthetician</label>
+            <div class="esth-picker">
+              <button type="button" class="esth-btn active" data-esth="chel-c">Chel-C</button>
+              <button type="button" class="esth-btn" data-esth="timothy">Timothy <small>Facials only</small></button>
+            </div>
           </div>
 
           <div class="form-row">
@@ -290,6 +298,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 -->
-<script src="script.js?v=8"></script>
+<script src="script.js?v=9"></script>
 </body>
 </html>
