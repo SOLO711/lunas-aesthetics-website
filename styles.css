@@ -2034,7 +2034,7 @@ p { margin-bottom: 1rem; }
   background: #F3F4F6; border-color: #E5E7EB; color: #9CA3AF;
   cursor: not-allowed; opacity: 0.65;
 }
-.time-slot.slot-admin-blocked::after { content: 'Unavailable'; display: block; font-size: 0.58rem; font-weight: 600; margin-top: 1px; }
+.time-slot.slot-admin-blocked::after { content: 'Reserved'; display: block; font-size: 0.58rem; font-weight: 600; margin-top: 1px; }
 
 /* ── Closed day message ── */
 .slot-closed-msg {
