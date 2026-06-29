@@ -103,21 +103,21 @@
 
           <div class="form-group">
             <label>Full Name *</label>
-            <input type="text" name="clientName" placeholder="Jane Smith" required/>
+            <input type="text" name="clientName" placeholder="Jane Smith" required maxlength="100" autocomplete="name"/>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label>Phone Number *</label>
-              <input type="tel" name="clientPhone" placeholder="1(868) 000-0000" required/>
+              <input type="tel" name="clientPhone" placeholder="1(868) 000-0000" required maxlength="30" pattern="[0-9+\-()\s]+" title="Phone number — digits, spaces, dashes, parentheses, and + are allowed"/>
             </div>
             <div class="form-group">
               <label>Email <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--gold-dark);font-size:0.72rem;">(confirmation sent here)</span></label>
-              <input type="email" name="clientEmail" placeholder="your@email.com"/>
+              <input type="email" name="clientEmail" placeholder="your@email.com" maxlength="100" autocomplete="email"/>
             </div>
           </div>
           <div class="form-group">
             <label>Notes / Special Requests</label>
-            <textarea name="notes" rows="3" placeholder="Any skin concerns, allergies, or notes for your esthetician..."></textarea>
+            <textarea name="notes" rows="3" placeholder="Any skin concerns, allergies, or notes for your esthetician..." maxlength="500"></textarea>
           </div>
 
           <!-- Booking Summary -->
@@ -164,6 +164,8 @@
             </div>
             <p style="font-size:0.82rem;">Kindly send a screenshot of your payment to <strong>1(868) 463-9306</strong>.</p>
           </div>
+
+          <p id="bsFirestoreWarning" style="display:none;margin-top:0.75rem;font-size:0.82rem;color:#92400E;background:#FEF3C7;padding:0.6rem 0.9rem;border-radius:6px;">Note: Your booking is saved locally. Cloud sync is temporarily unavailable — you will still receive an email confirmation shortly.</p>
 
           <a href="index.html" class="btn btn-primary" style="margin-top:1.5rem;">Back to Home</a>
           <br/>
@@ -298,6 +300,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 -->
-<script src="script.js?v=10"></script>
+<script src="script.js?v=11"></script>
 </body>
 </html>

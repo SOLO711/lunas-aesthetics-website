@@ -109,16 +109,16 @@
           <div class="form-row">
             <div class="form-group">
               <label>Your Name *</label>
-              <input type="text" name="name" placeholder="Jane Smith" required/>
+              <input type="text" name="name" placeholder="Jane Smith" required maxlength="100" autocomplete="name"/>
             </div>
             <div class="form-group">
               <label>Phone Number *</label>
-              <input type="tel" name="phone" placeholder="1(868) 000-0000" required/>
+              <input type="tel" name="phone" placeholder="1(868) 000-0000" required maxlength="30" pattern="[0-9+\-()\s]+" title="Phone number — digits, spaces, dashes, parentheses, and + are allowed"/>
             </div>
           </div>
           <div class="form-group">
             <label>Email Address</label>
-            <input type="email" name="email" placeholder="your@email.com"/>
+            <input type="email" name="email" placeholder="your@email.com" maxlength="100" autocomplete="email"/>
           </div>
           <div class="form-group">
             <label>Subject</label>
@@ -134,7 +134,7 @@
           </div>
           <div class="form-group">
             <label>Message *</label>
-            <textarea name="message" rows="5" placeholder="Tell us how we can help you..." required></textarea>
+            <textarea name="message" rows="5" placeholder="Tell us how we can help you..." required maxlength="1000"></textarea>
           </div>
           <!-- honeypot: hidden from humans, bots fill it in -->
           <input type="text" name="website" style="position:absolute;left:-9999px;opacity:0;pointer-events:none;" tabindex="-1" autocomplete="off" aria-hidden="true"/>
@@ -188,6 +188,6 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<script src="script.js?v=10"></script>
+<script src="script.js?v=11"></script>
 </body>
 </html>

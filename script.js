@@ -494,12 +494,13 @@ async function _fsGet(key) {
 }
 async function _fsSet(key, val) {
   try {
-    await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}&updateMask.fieldPaths=value`, {
+    const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}&updateMask.fieldPaths=value`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fields: { value: { stringValue: JSON.stringify(val) } } }),
     });
-  } catch(e) { console.warn('[Firestore] write failed [' + key + ']:', e.message); }
+    return res.ok;
+  } catch(e) { console.warn('[Firestore] write failed [' + key + ']:', e.message); return false; }
 }
 (async function _syncOnLoad() {
   const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates', 'manual_events', 'course_enrollments'];
@@ -607,7 +608,8 @@ async function getBookedSlots(dateStr) {
 async function saveBookingRecord(booking) {
   const all = getDB('lunas_bookings');
   all.push(booking);
-  setDB('lunas_bookings', all);
+  localStorage.setItem('lunas_bookings', JSON.stringify(all));
+  return await _fsSet('bookings', all);
 }
 
 function sendEmail(subject, fromName, fromPhone, fromEmail, body) {
@@ -1038,6 +1040,51 @@ function initBooking() {
     const fd = new FormData(form);
     // Honeypot — bots fill the hidden "website" field
     if (fd.get('website')) { form.style.display = 'none'; document.getElementById('bookingSuccess')?.style && (document.getElementById('bookingSuccess').style.display = 'block'); return; }
+
+    // Rate limiting — prevent rapid resubmission
+    const _COOLDOWN_MS = 30000;
+    const _lastBook = parseInt(localStorage.getItem('lunas_last_book') || '0', 10);
+    const _msSinceLast = Date.now() - _lastBook;
+    if (_msSinceLast < _COOLDOWN_MS) {
+      const secsLeft = Math.ceil((_COOLDOWN_MS - _msSinceLast) / 1000);
+      submitBtn.disabled = true;
+      submitBtn.textContent = `Please wait ${secsLeft}s…`;
+      const _cdInterval = setInterval(() => {
+        const rem = Math.ceil((_COOLDOWN_MS - (Date.now() - _lastBook)) / 1000);
+        if (rem <= 0) {
+          clearInterval(_cdInterval);
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Confirm Booking ✨';
+        } else {
+          submitBtn.textContent = `Please wait ${rem}s…`;
+        }
+      }, 1000);
+      return;
+    }
+
+    // Input validation and sanitization
+    const rawName  = (fd.get('clientName')  || '').trim();
+    const rawPhone = (fd.get('clientPhone') || '').trim();
+    const rawEmail = (fd.get('clientEmail') || '').trim();
+    const rawNotes = (fd.get('notes')       || '').trim();
+    if (!rawName) { alert('Please enter your full name.'); return; }
+    if (!rawPhone) { alert('Please enter your phone number.'); return; }
+    if (!/^[0-9+\-()\s]{7,30}$/.test(rawPhone)) {
+      alert('Please enter a valid phone number (digits, spaces, dashes, parentheses and + are allowed).');
+      return;
+    }
+    if (rawEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail)) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+
+    // Check if client is blocked before checking slot (uses cleaned phone)
+    const _blockedCheck = getDB('lunas_clients').find(c => c.phone === rawPhone);
+    if (_blockedCheck?.blocked) {
+      alert('We\'re unable to process your booking at this time. Please contact us directly on 1(868) 463-9306.');
+      return;
+    }
+
     if (!selectedServices.length) { alert('Please add at least one service.'); return; }
     if (!selectedTimeInput?.value) { alert('Please select a time slot.'); return; }
     const dateStr = fd.get('bookDate');
@@ -1076,16 +1123,6 @@ function initBooking() {
       return;
     }
 
-    // Check if client is blocked by phone number
-    const allClients = getDB('lunas_clients');
-    const clientRecord = allClients.find(c => c.phone === fd.get('clientPhone'));
-    if (clientRecord?.blocked) {
-      alert('We\'re unable to process your booking at this time. Please contact us directly on 1(868) 463-9306.');
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Confirm Booking ✨';
-      return;
-    }
-
     // Show consent modal — only proceed after client agrees
     showConsentModal(catSelect.value, async () => {
 
@@ -1097,9 +1134,9 @@ function initBooking() {
     const _combinedPrice = (_hasFromPrice ? 'from TTD ' : 'TTD ') + _totalBase.toLocaleString();
     const booking = {
       id: Date.now(),
-      name: fd.get('clientName'),
-      phone: fd.get('clientPhone'),
-      email: fd.get('clientEmail') || '',
+      name: rawName,
+      phone: rawPhone,
+      email: rawEmail,
       services: selectedServices,
       service: _combinedName,
       price: _combinedPrice,
@@ -1107,13 +1144,13 @@ function initBooking() {
       promoApplied: _discAmt ? _spName : null,
       date: dateStr,
       time: timeStr,
-      notes: fd.get('notes') || '',
+      notes: rawNotes,
       status: _bookingType,
       esthetician: _selectedEsthetician,
       created: new Date().toISOString(),
     };
 
-    await saveBookingRecord(booking);
+    const _fsSaved = await saveBookingRecord(booking);
 
     // Auto-save client record
     const clients = getDB('lunas_clients');
@@ -1132,6 +1169,7 @@ function initBooking() {
         notes: '',
         lastVisit: booking.date,
         totalVisits: 1,
+        created: new Date().toISOString(),
       });
     }
     setDB('lunas_clients', clients);
@@ -1162,7 +1200,14 @@ function initBooking() {
           : `✅ New Booking Confirmed — ${booking.service} on ${formattedDate}`,
         booking.name, booking.phone, booking.email, emailBody
       );
-    } catch (err) { console.error('Business email failed:', err); }
+    } catch (err) {
+      console.error('Business email failed:', err);
+      try {
+        const _failLog = JSON.parse(localStorage.getItem('lunas_email_fails') || '[]');
+        _failLog.push({ ts: new Date().toISOString(), bookingId: booking.id, clientName: booking.name });
+        localStorage.setItem('lunas_email_fails', JSON.stringify(_failLog.slice(-20)));
+      } catch(_e) {}
+    }
 
     // Send customer confirmation (only if they provided an email)
     if (booking.email) {
@@ -1182,9 +1227,15 @@ function initBooking() {
       document.getElementById('bsName').textContent = booking.name;
       const bsServiceEl = document.getElementById('bsService');
       if (bsServiceEl) {
-        bsServiceEl.innerHTML = selectedServices.length === 1
-          ? selectedServices[0].name
-          : selectedServices.map(s => `• ${s.name}`).join('<br>');
+        bsServiceEl.textContent = '';
+        if (selectedServices.length === 1) {
+          bsServiceEl.textContent = selectedServices[0].name;
+        } else {
+          selectedServices.forEach((s, i) => {
+            if (i > 0) bsServiceEl.appendChild(document.createElement('br'));
+            bsServiceEl.appendChild(document.createTextNode('• ' + s.name));
+          });
+        }
       }
       document.getElementById('bsDate').textContent = formattedDate;
       document.getElementById('bsTime').textContent = booking.time;
@@ -1195,6 +1246,10 @@ function initBooking() {
         ? 'That time slot is taken, but your request has been sent. Chel-C will review and contact you to confirm.'
         : 'Your appointment is confirmed. We look forward to seeing you!';
       successEl.style.display = 'block';
+      if (!_fsSaved) {
+        const bsWarn = document.getElementById('bsFirestoreWarning');
+        if (bsWarn) bsWarn.style.display = 'block';
+      }
       const icalBtn = document.getElementById('icalBtn');
       if (icalBtn) {
         icalBtn.style.display = 'inline-flex';
@@ -1202,6 +1257,7 @@ function initBooking() {
       }
     }
 
+    localStorage.setItem('lunas_last_book', Date.now().toString());
     submitBtn.disabled = false;
     submitBtn.textContent = 'Confirm Booking ✨';
 
@@ -1300,28 +1356,44 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   if (!cart.length) return;
   const submitBtn = e.target.querySelector('[type="submit"]');
+  const fd = new FormData(e.target);
+
+  // Input sanitization and validation
+  const coName  = (fd.get('coName')  || '').trim();
+  const coPhone = (fd.get('coPhone') || '').trim();
+  const coEmail = (fd.get('coEmail') || '').trim();
+  if (!coName)  { alert('Please enter your name.'); return; }
+  if (!coPhone) { alert('Please enter your phone number.'); return; }
+  if (!/^[0-9+\-()\s]{7,30}$/.test(coPhone)) {
+    alert('Please enter a valid phone number (digits, spaces, dashes, parentheses and + are allowed).');
+    return;
+  }
+  if (coEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(coEmail)) {
+    alert('Please enter a valid email address.');
+    return;
+  }
+
   submitBtn.disabled = true;
   submitBtn.textContent = 'Sending…';
-  const fd = new FormData(e.target);
   const lines = cart.map(i => `  • ${i.name} x${i.qty} — TTD ${(i.price * i.qty).toFixed(2)}`).join('\n');
   const body =
     `Product Order\n\n` +
-    `Name:  ${fd.get('coName')}\n` +
-    `Phone: ${fd.get('coPhone')}\n` +
-    `Email: ${fd.get('coEmail') || 'Not provided'}\n\n` +
+    `Name:  ${coName}\n` +
+    `Phone: ${coPhone}\n` +
+    `Email: ${coEmail || 'Not provided'}\n\n` +
     `Items:\n${lines}\n\n` +
     `Total: TTD ${cartTotal().toFixed(2)}`;
   try {
     await sendEmail(
-      `Product Order from ${fd.get('coName')}`,
-      fd.get('coName'), fd.get('coPhone'), fd.get('coEmail'), body
+      `Product Order from ${coName}`,
+      coName, coPhone, coEmail, body
     );
   } catch (err) { console.error('Order email failed:', err); }
   // Customer order confirmation
-  if (fd.get('coEmail')) {
+  if (coEmail) {
     try {
       await sendClientEmail(
-        fd.get('coName'), fd.get('coEmail'),
+        coName, coEmail,
         lines, `TTD ${cartTotal().toFixed(2)}`,
         new Date().toLocaleDateString('en-TT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
         '', false,
@@ -1358,24 +1430,43 @@ if (contactForm) {
       submitBtn.textContent = 'Send Message ✉️';
       return;
     }
+
+    // Input sanitization and validation
+    const cName    = (fd.get('name')    || '').trim();
+    const cPhone   = (fd.get('phone')   || '').trim();
+    const cEmail   = (fd.get('email')   || '').trim();
+    const cMessage = (fd.get('message') || '').trim();
+    if (!cName)  { submitBtn.disabled = false; submitBtn.textContent = 'Send Message ✉️'; alert('Please enter your name.'); return; }
+    if (!cPhone) { submitBtn.disabled = false; submitBtn.textContent = 'Send Message ✉️'; alert('Please enter your phone number.'); return; }
+    if (!/^[0-9+\-()\s]{7,30}$/.test(cPhone)) {
+      submitBtn.disabled = false; submitBtn.textContent = 'Send Message ✉️';
+      alert('Please enter a valid phone number (digits, spaces, dashes, parentheses and + are allowed).');
+      return;
+    }
+    if (cEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cEmail)) {
+      submitBtn.disabled = false; submitBtn.textContent = 'Send Message ✉️';
+      alert('Please enter a valid email address.');
+      return;
+    }
+
     const body =
       `Website Enquiry\n\n` +
-      `Name:     ${fd.get('name')}\n` +
-      `Phone:    ${fd.get('phone')}\n` +
-      `Email:    ${fd.get('email') || 'Not provided'}\n` +
+      `Name:     ${cName}\n` +
+      `Phone:    ${cPhone}\n` +
+      `Email:    ${cEmail || 'Not provided'}\n` +
       `Subject:  ${fd.get('subject') || 'General'}\n\n` +
-      `Message:\n${fd.get('message')}`;
+      `Message:\n${cMessage}`;
     try {
       await sendEmail(
-        `Website Enquiry from ${fd.get('name')}`,
-        fd.get('name'), fd.get('phone'), fd.get('email'), body
+        `Website Enquiry from ${cName}`,
+        cName, cPhone, cEmail, body
       );
     } catch (err) { console.error('Contact email failed:', err); }
     // Customer confirmation
-    if (fd.get('email')) {
+    if (cEmail) {
       try {
         await sendClientEmail(
-          fd.get('name'), fd.get('email'),
+          cName, cEmail,
           fd.get('subject') || 'General Enquiry', '',
           new Date().toLocaleDateString('en-TT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
           '', false,
@@ -1391,9 +1482,9 @@ if (contactForm) {
       const amount = matchedCourse ? parseTTD(matchedCourse.price) : 0;
       const enrollment = {
         id: 'ce_' + Date.now(),
-        name: fd.get('name') || '',
-        phone: fd.get('phone') || '',
-        email: fd.get('email') || '',
+        name: cName,
+        phone: cPhone,
+        email: cEmail,
         course: courseName,
         amount,
         enrolledDate: new Date().toISOString().split('T')[0],
@@ -1416,7 +1507,7 @@ if (contactForm) {
 
 /* ── Shared auth helpers (used by login + settings) ── */
 const _DEFAULT_HASH = 'afc27beb96af151ae8b94c016c882a583016eb42c116276bbbb03b7bb55e7cde';
-function getAdminHash() { return _DEFAULT_HASH; }
+function getAdminHash() { return localStorage.getItem('lunas_pw_hash') || _DEFAULT_HASH; }
 async function hashPw(pw) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -1431,7 +1522,7 @@ function initAdmin() {
   const LOCKOUT_MS   = 15 * 60 * 1000;
   const SESSION_MS   = 4 * 60 * 60 * 1000;
 
-  function getLockout() { return JSON.parse(localStorage.getItem('lunas_lockout') || 'null'); }
+  function getLockout() { return JSON.parse(sessionStorage.getItem('lunas_lockout') || 'null'); }
   function isLocked() {
     const l = getLockout();
     return l && Date.now() < l.until;
@@ -1440,9 +1531,9 @@ function initAdmin() {
     const l = getLockout() || { count: 0, until: 0 };
     l.count++;
     if (l.count >= MAX_ATTEMPTS) { l.until = Date.now() + LOCKOUT_MS; l.count = 0; }
-    localStorage.setItem('lunas_lockout', JSON.stringify(l));
+    sessionStorage.setItem('lunas_lockout', JSON.stringify(l));
   }
-  function clearLockout() { localStorage.removeItem('lunas_lockout'); }
+  function clearLockout() { sessionStorage.removeItem('lunas_lockout'); }
 
   function doLogout() {
     sessionStorage.removeItem('lunas_admin');
@@ -1492,7 +1583,7 @@ function initAdmin() {
     } else {
       recordFailure();
       if (isLocked()) {
-        errEl.textContent = `Too many failed attempts. Locked for 15 minutes.`;
+        errEl.textContent = `Too many failed attempts. Locked for 15 minutes. To reset early, close this browser tab completely and reopen it.`;
       } else {
         const l = getLockout() || { count: 0 };
         const left = MAX_ATTEMPTS - l.count;
@@ -1560,7 +1651,22 @@ function setDB(key, val) {
   if (['bookings', 'clients', 'inventory'].includes(fsKey)) _fsSet(fsKey, val);
 }
 
+function checkEmailFailBanner() {
+  const fails = JSON.parse(localStorage.getItem('lunas_email_fails') || '[]');
+  if (!fails.length) return;
+  const topbarRight = document.querySelector('.admin-topbar-right');
+  if (!topbarRight || document.getElementById('emailFailBanner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'emailFailBanner';
+  banner.style.cssText = 'background:#FEF3C7;color:#92400E;padding:0.4rem 0.8rem;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;margin-right:0.5rem;';
+  banner.title = 'Click to dismiss';
+  banner.innerHTML = `⚠️ ${fails.length} booking email${fails.length > 1 ? 's' : ''} may not have been sent — <u>click to dismiss</u>`;
+  banner.addEventListener('click', () => { localStorage.removeItem('lunas_email_fails'); banner.remove(); });
+  topbarRight.insertBefore(banner, topbarRight.firstChild);
+}
+
 function loadAdminData() {
+  checkEmailFailBanner();
   const _renderAll = () => {
     renderDashboard();
     renderBookingsTable();
@@ -2145,6 +2251,8 @@ window.updateBookingStatus = (id, status, selectEl) => {
   if (b) {
     b.status = status;
     if (status !== 'cancelled') delete b.cancelReason;
+    b.modified = new Date().toISOString();
+    b.modifiedBy = 'admin';
     setDB('lunas_bookings', bookings);
     renderBookingsTable();
     renderDashboard();
@@ -2189,6 +2297,8 @@ document.getElementById('editBookingForm')?.addEventListener('submit', e => {
   b.date        = document.getElementById('ebDate').value;
   b.time        = document.getElementById('ebTime').value;
   b.notes       = document.getElementById('ebNotes').value.trim();
+  b.modified    = new Date().toISOString();
+  b.modifiedBy  = 'admin';
   setDB('lunas_bookings', bookings);
   document.getElementById('editBookingModal').classList.remove('open');
   renderBookingsTable(); renderDashboard(); renderCalendar();
@@ -2208,7 +2318,7 @@ document.getElementById('cancelReasonForm')?.addEventListener('submit', e => {
   const id = Number(modal.dataset.bookingId);
   const bookings = getDB('lunas_bookings');
   const b = bookings.find(x => x.id === id);
-  if (b) { b.status = 'cancelled'; b.cancelReason = reason; setDB('lunas_bookings', bookings); }
+  if (b) { b.status = 'cancelled'; b.cancelReason = reason; b.modified = new Date().toISOString(); b.modifiedBy = 'admin'; setDB('lunas_bookings', bookings); }
   modal.classList.remove('open');
   renderBookingsTable();
   renderDashboard();
@@ -2275,8 +2385,20 @@ function openClientModal(client = null) {
 
 window.editClient = id => { const c = getDB('lunas_clients').find(x => x.id === id); if (c) openClientModal(c); };
 window.deleteClient = id => {
-  if (!confirm('Delete this client?')) return;
-  setDB('lunas_clients', getDB('lunas_clients').filter(c => c.id !== id));
+  const clients = getDB('lunas_clients');
+  const clientToDelete = clients.find(c => c.id === id);
+  if (!clientToDelete) return;
+  if (!confirm(`Delete ${clientToDelete.name}?\n\nTheir personal details (name, phone, email) will be anonymised in all existing bookings. Booking history and dates are kept for reporting purposes.`)) return;
+  const bookings = getDB('lunas_bookings');
+  let bookingsChanged = false;
+  bookings.forEach(b => {
+    if (b.phone === clientToDelete.phone || (clientToDelete.email && b.email === clientToDelete.email)) {
+      b.name = 'Deleted Client'; b.phone = ''; b.email = '';
+      bookingsChanged = true;
+    }
+  });
+  if (bookingsChanged) setDB('lunas_bookings', bookings);
+  setDB('lunas_clients', clients.filter(c => c.id !== id));
   renderClientsTable(); renderDashboard();
 };
 
@@ -2298,7 +2420,7 @@ document.getElementById('clientForm')?.addEventListener('submit', e => {
   const clients = getDB('lunas_clients');
   const existing = clients.findIndex(c => c.id === id);
   const prev = existing >= 0 ? clients[existing] : null;
-  const client = { id, name: fd.get('cName'), phone: fd.get('cPhone'), email: fd.get('cEmail'), dob: fd.get('cDob'), notes: fd.get('cNotes'), lastVisit: prev?.lastVisit || '', totalVisits: prev?.totalVisits || 0, blocked: prev?.blocked || false };
+  const client = { id, name: fd.get('cName'), phone: fd.get('cPhone'), email: fd.get('cEmail'), dob: fd.get('cDob'), notes: fd.get('cNotes'), lastVisit: prev?.lastVisit || '', totalVisits: prev?.totalVisits || 0, blocked: prev?.blocked || false, created: prev?.created || new Date().toISOString() };
   if (existing >= 0) clients[existing] = client; else clients.push(client);
   setDB('lunas_clients', clients);
   closeModal('clientModal');
@@ -4062,16 +4184,21 @@ function importAllData(file) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      const keys = ['lunas_bookings','lunas_clients','lunas_inventory','lunas_services','lunas_courses'];
+      const _restoreFsKeys = { 'lunas_bookings': 'bookings', 'lunas_clients': 'clients', 'lunas_inventory': 'inventory', 'lunas_services': 'services', 'lunas_courses': 'courses' };
+      const keys = Object.keys(_restoreFsKeys);
       let count = 0;
       keys.forEach(k => {
-        if (data[k] !== undefined) { localStorage.setItem(k, JSON.stringify(data[k])); count++; }
+        if (data[k] !== undefined) {
+          localStorage.setItem(k, JSON.stringify(data[k]));
+          _fsSet(_restoreFsKeys[k], data[k]);
+          count++;
+        }
       });
       if (msgEl) {
-        msgEl.textContent = `Restored ${count} data set${count !== 1 ? 's' : ''} successfully. Refreshing...`;
+        msgEl.textContent = `Restored ${count} data set${count !== 1 ? 's' : ''} successfully. Syncing to cloud... Refreshing.`;
         msgEl.style.cssText = 'display:block;background:#DCFCE7;color:#15803D;padding:0.75rem 1rem;border-radius:6px;font-size:0.85rem;font-weight:600;margin-top:1rem;';
       }
-      setTimeout(() => location.reload(), 1500);
+      setTimeout(() => location.reload(), 2000);
     } catch(err) {
       if (msgEl) {
         msgEl.textContent = 'Invalid backup file. Please use a file exported from this admin.';

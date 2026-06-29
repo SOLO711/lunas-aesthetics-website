@@ -256,7 +256,7 @@
   </div>
 </footer>
 
-<script src="script.js?v=10"></script>
+<script src="script.js?v=11"></script>
 
 <!--
   â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
@@ -293,9 +293,9 @@ CHECKOUT MODAL:
       <button class="modal-x" id="checkoutModalClose">âœ•</button>
     </div>
     <form id="checkoutForm">
-      <div class="mfg"><label>Full Name *</label><input type="text" name="coName" placeholder="Jane Smith" required/></div>
-      <div class="mfg"><label>Phone Number *</label><input type="tel" name="coPhone" placeholder="1(868) 000-0000" required/></div>
-      <div class="mfg"><label>Email</label><input type="email" name="coEmail" placeholder="your@email.com"/></div>
+      <div class="mfg"><label>Full Name *</label><input type="text" name="coName" placeholder="Jane Smith" required maxlength="100" autocomplete="name"/></div>
+      <div class="mfg"><label>Phone Number *</label><input type="tel" name="coPhone" placeholder="1(868) 000-0000" required maxlength="30" pattern="[0-9+\-()\s]+" title="Phone number — digits, spaces, dashes, parentheses, and + are allowed"/></div>
+      <div class="mfg"><label>Email</label><input type="email" name="coEmail" placeholder="your@email.com" maxlength="100" autocomplete="email"/></div>
       <p style="font-size:0.82rem;color:var(--text-light);margin-bottom:1rem;">We'll contact you to confirm payment and delivery/pickup.</p>
       <div class="modal-foot">
         <button type="button" class="btn-admin btn-admin-ghost" onclick="document.getElementById('checkoutModal').classList.remove('open')">Cancel</button>

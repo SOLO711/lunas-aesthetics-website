@@ -628,6 +628,32 @@
           <div id="restoreMsg" style="display:none;margin-top:1rem;padding:0.75rem 1rem;border-radius:6px;font-size:0.85rem;font-weight:600;"></div>
         </div>
       </div>
+
+      <!-- Change Password -->
+      <div class="admin-card" style="margin-top:1.5rem;">
+        <div class="admin-card-head"><h3>🔒 Change Password</h3></div>
+        <div class="admin-card-body" style="padding:1.5rem;">
+          <p style="font-size:0.88rem;color:var(--text-light);margin-bottom:1.25rem;">Change the admin panel password. You must enter your current password to proceed.</p>
+          <form id="changePwForm" autocomplete="off">
+            <div style="display:flex;flex-direction:column;gap:0.75rem;max-width:360px;">
+              <div class="mfg">
+                <label>Current Password</label>
+                <input type="password" id="cpwCurrent" required autocomplete="current-password" placeholder="Current password"/>
+              </div>
+              <div class="mfg">
+                <label>New Password</label>
+                <input type="password" id="cpwNew" required autocomplete="new-password" minlength="8" placeholder="New password (min 8 characters)"/>
+              </div>
+              <div class="mfg">
+                <label>Confirm New Password</label>
+                <input type="password" id="cpwConfirm" required autocomplete="new-password" placeholder="Repeat new password"/>
+              </div>
+              <div id="cpwMsg" style="display:none;"></div>
+              <button type="submit" class="btn-admin btn-admin-pink" style="width:fit-content;">Update Password</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
 
   </main>
@@ -1117,6 +1143,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="script.js?v=10"></script>
+<script src="script.js?v=11"></script>
 </body>
 </html>

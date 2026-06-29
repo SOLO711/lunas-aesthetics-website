@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Luna's Esthetics — Firestore Security Rules ──────────────────────
+    //
+    // CURRENT STATE: No Firebase Auth is implemented.
+    // All 9 site_data keys require open read/write for the following reasons:
+    //   READS:  _syncOnLoad (script.js) fetches all keys on every page load
+    //   WRITES: admin panel + booking form write all keys without auth tokens
+    //
+    // The Firebase API key in script.js is intentionally public (Google design).
+    // Real protection comes from Auth-gated Firestore rules — see Future State below.
+    //
+    // THESE RULES ARE TEMPORARY. Apply the Future State rules after Firebase Auth
+    // migration is complete (Phase 2 of the security roadmap).
+    // ──────────────────────────────────────────────────────────────────────
+
+    match /site_data/{key} {
+      allow read, write: if true;
+    }
+
+    // ── Future State (requires Firebase Auth migration) ───────────────────
+    //
+    // Step 1: Enable Firebase Authentication (Email/Password) in Firebase Console.
+    // Step 2: Add a custom claim `admin: true` to the admin user via Firebase Admin SDK.
+    // Step 3: Replace the admin sessionStorage login with Firebase Auth sign-in.
+    // Step 4: Update _fsSet/_fsGet to include the Firebase ID token in the Authorization header.
+    // Step 5: Apply these rules:
+    //
+    // // Public catalog — readable by anyone, writable only by admin
+    // match /site_data/{key} {
+    //   allow read: if key in ['services', 'specials', 'courses', 'blocked_dates'];
+    //   allow write: if request.auth != null && request.auth.token.admin == true;
+    // }
+    //
+    // // Booking submission — public can write (booking form), admin can read + write
+    // match /site_data/bookings {
+    //   allow write: if true; // public booking form creates bookings
+    //   allow read: if request.auth != null && request.auth.token.admin == true;
+    // }
+    //
+    // // Sensitive data — admin only
+    // match /site_data/{key} {
+    //   allow read, write: if request.auth != null && request.auth.token.admin == true;
+    //   // covers: clients, inventory, manual_events, course_enrollments
+    // }
+    //
+    // ─────────────────────────────────────────────────────────────────────
+  }
+}
