@@ -3226,25 +3226,40 @@ initCoursesMgr();
     if (!container || !grid) return;
     if (!extras.length) { container.style.display = 'none'; return; }
     container.style.display = '';
-    grid.innerHTML = extras.map(c => {
+    grid.innerHTML = extras.map((c, i) => {
       const priceStr = c.price ? (String(c.price).startsWith('TTD') ? c.price : 'TTD ' + c.price) : '';
       const badge = LEVEL_BADGE[c.level] || 'level-beginner';
+      const num = String(11 + i).padStart(2, '0');
+      const imgSection = c.image
+        ? `<div class="course-img course-img--photo">
+            <img src="${c.image}" alt="${safe(c.name)}" loading="lazy" style="object-fit:cover;width:100%;height:100%;"/>
+            <span class="crd-num">${num}</span>
+            <span class="course-level-badge ${badge}">${c.level || 'Course'}</span>
+          </div>`
+        : `<div class="course-img course-img--intermediate">
+            <span class="crd-num">${num}</span>
+            <span class="course-level-badge ${badge}">${c.level || 'Course'}</span>
+          </div>`;
+      const depositHtml = c.deposit
+        ? `<div class="course-deposit-note">Deposit: ${String(c.deposit).startsWith('TTD') ? c.deposit : 'TTD ' + c.deposit}</div>`
+        : '';
+      const durationHtml = c.duration
+        ? `<div class="course-meta"><span class="course-meta-tag">${c.duration}</span></div>`
+        : '';
       return `<div class="course-card reveal-up">
-        <div class="course-img course-img--intermediate">
-          <span class="crd-num">★</span>
-          <span class="course-level-badge ${badge}">${c.level || 'Course'}</span>
-        </div>
+        ${imgSection}
         <div class="course-body">
-          <h3>${c.name}</h3>
+          <h3>${safe(c.name)}</h3>
           <p>${c.desc || ''}</p>
-          <div class="course-meta">
-            <span class="course-meta-tag">${c.duration || ''}</span>
+          ${durationHtml}
+        </div>
+        <div class="course-foot">
+          <div class="course-price-block">
+            <small>Course Fee</small>
+            <div class="price">${priceStr}</div>
+            ${depositHtml}
           </div>
-          <div class="course-price-row">
-            <span class="course-price">${priceStr}</span>
-            ${c.deposit ? `<span class="course-deposit">Deposit: ${String(c.deposit).startsWith('TTD') ? c.deposit : 'TTD '+c.deposit}</span>` : ''}
-          </div>
-          <a href="contact.html?course=${encodeURIComponent(c.name)}" class="btn btn-primary crd-btn">Enquire Now</a>
+          <a href="contact.html?course=${encodeURIComponent(c.name)}" class="btn btn-primary crd-btn">Enrol Now</a>
         </div>
       </div>`;
     }).join('');
@@ -3764,6 +3779,7 @@ function initCoursesMgr() {
     form.courseDeposit.value  = course.deposit || '';
     form.courseDesc.value     = course.desc || '';
     form.courseStatus.value   = course.status || 'active';
+    form.courseImage.value    = course.image || '';
     modal.classList.add('open');
   }
   document.getElementById('courseModalClose').onclick = () => modal.classList.remove('open');
@@ -3798,6 +3814,7 @@ function initCoursesMgr() {
       price:    fd.get('coursePrice'),
       deposit:  fd.get('courseDeposit'),
       desc:     fd.get('courseDesc'),
+      image:    fd.get('courseImage') || '',
       status:   fd.get('courseStatus'),
     };
     if (id) {
