@@ -2174,10 +2174,14 @@ function renderDashboard() {
   const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
   const monthBookings = bookings.filter(b => b.date && b.date.startsWith(monthPrefix) && b.status !== 'cancelled');
-  const monthRevenue = monthBookings.reduce((sum, b) => {
-    const num = parseFloat((b.price || '').replace(/[^0-9.]/g, ''));
-    return sum + (isNaN(num) ? 0 : num);
-  }, 0);
+  const monthBookRev = monthBookings.reduce((sum, b) => sum + _parsePrice(b.discountedPrice || b.price), 0);
+
+  // Include confirmed/completed course enrollment revenue in monthly total
+  const monthEnrolRev = getCourseEnrollments()
+    .filter(e => e.enrolledDate && e.enrolledDate.startsWith(monthPrefix) && (e.status === 'confirmed' || e.status === 'completed'))
+    .reduce((sum, e) => sum + parseTTD(e.amount), 0);
+
+  const monthRevenue = monthBookRev + monthEnrolRev;
 
   const revEl = document.getElementById('statMonthRevenue');
   const revLabel = document.getElementById('statMonthRevenueLabel');
