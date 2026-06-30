@@ -3246,7 +3246,7 @@ initCoursesMgr();
       const durationHtml = c.duration
         ? `<div class="course-meta"><span class="course-meta-tag">${c.duration}</span></div>`
         : '';
-      return `<div class="course-card reveal-up">
+      return `<div class="course-card">
         ${imgSection}
         <div class="course-body">
           <h3>${safe(c.name)}</h3>
