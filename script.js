@@ -560,6 +560,15 @@ function _to12hr(t24) {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
+function _to24hr(t12) {
+  if (!t12) return '';
+  const [time, ampm] = t12.split(' ');
+  let [h, m] = time.split(':').map(Number);
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
 // Single source of truth for the daily booking grid (24hr) — was previously duplicated
 // as a separate 12hr array for rendering, which could drift out of sync.
 const SLOT_GRID_24 = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30'];
@@ -2327,7 +2336,7 @@ window.editBooking = id => {
   document.getElementById('ebPrice').value        = b.price || '';
   document.getElementById('ebEsthetician').value  = b.esthetician || 'chel-c';
   document.getElementById('ebDate').value         = b.date || '';
-  document.getElementById('ebTime').value         = b.time || '';
+  document.getElementById('ebTime').value         = b.time ? _to24hr(b.time) : '';
   document.getElementById('ebNotes').value        = b.notes || '';
   document.getElementById('editBookingModal').classList.add('open');
 };
@@ -2358,7 +2367,8 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async e =
   const name        = document.getElementById('ebName').value.trim();
   const phone       = document.getElementById('ebPhone').value.trim();
   const date        = document.getElementById('ebDate').value;
-  const time        = document.getElementById('ebTime').value;
+  const timeRaw     = document.getElementById('ebTime').value;
+  const time        = timeRaw ? _to12hr(timeRaw) : '';
   const esthetician = document.getElementById('ebEsthetician').value;
 
   if (isNew) {
