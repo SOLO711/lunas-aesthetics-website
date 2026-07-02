@@ -560,13 +560,49 @@ function _to12hr(t24) {
   return `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
+// Single source of truth for the daily booking grid (24hr) — was previously duplicated
+// as a separate 12hr array for rendering, which could drift out of sync.
+const SLOT_GRID_24 = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30'];
+const SLOT_GRID_12 = SLOT_GRID_24.map(_to12hr);
+// Salon closes at 5:00 PM (matches posted hours in index.html/about.html) — a booking
+// starting late enough to run past this shouldn't be selectable.
+const CLOSING_MINUTES = 17 * 60;
+
+function _toMins(t24) { const [h, m] = t24.split(':').map(Number); return h * 60 + m; }
+
 // Returns every 30-min booking slot string (12hr) that falls inside [startTime, endTime)
 function _manualBlockedSlots(startTime, endTime) {
-  const slots24 = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30'];
-  const toMins = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
-  const start = toMins(startTime);
-  const end   = toMins(endTime);
-  return slots24.filter(t => { const m = toMins(t); return m >= start && m < end; }).map(_to12hr);
+  const start = _toMins(startTime);
+  const end   = _toMins(endTime);
+  return SLOT_GRID_24.filter(t => { const m = _toMins(t); return m >= start && m < end; }).map(_to12hr);
+}
+
+// Parses a free-text service duration ('1 hr', '1h 30m', '6 hrs', '30 mins', ...) into
+// total minutes. Falls back to 30 when missing/unparseable (e.g. admin-added bookings
+// whose Service field is freeform text with no linked catalog duration).
+function parseDurationMinutes(str) {
+  if (!str) return 30;
+  const hMatch = str.match(/(\d+)\s*h/i);
+  const mMatch = str.match(/(\d+)\s*m/i);
+  const hours = hMatch ? parseInt(hMatch[1], 10) : 0;
+  const mins  = mMatch ? parseInt(mMatch[1], 10) : 0;
+  const total = hours * 60 + mins;
+  return total > 0 ? total : 30;
+}
+
+function totalDurationMinutes(services) {
+  if (!services || !services.length) return 30;
+  return services.reduce((sum, s) => sum + parseDurationMinutes(s && s.duration), 0);
+}
+
+// Returns every 30-min grid slot (12hr) occupied by a booking starting at startTime12hr
+// (12hr string, e.g. '10:00 AM') and lasting durationMinutes.
+function _occupiedSlots(startTime12hr, durationMinutes) {
+  const idx = SLOT_GRID_12.indexOf(startTime12hr);
+  if (idx === -1) return [startTime12hr];
+  const start = _toMins(SLOT_GRID_24[idx]);
+  const end = start + durationMinutes;
+  return SLOT_GRID_24.filter(t => { const m = _toMins(t); return m >= start && m < end; }).map(_to12hr);
 }
 
 async function getBookedSlots(dateStr) {
@@ -578,8 +614,9 @@ async function getBookedSlots(dateStr) {
     bookings
       .filter(b => b.date === dateStr && b.status !== 'cancelled')
       .forEach(b => {
-        if (b.esthetician === 'timothy') timothyBooked.push(b.time);
-        else chelcBooked.push(b.time);
+        const occupied = _occupiedSlots(b.time, totalDurationMinutes(b.services));
+        if (b.esthetician === 'timothy') timothyBooked.push(...occupied);
+        else chelcBooked.push(...occupied);
       });
   }
 
@@ -716,6 +753,7 @@ function initBooking() {
     renderSelectedServices();
     updateEstheticianPicker();
     updateSummary();
+    if (dateInput?.value) renderTimeSlots(dateInput.value);
   };
 
   // Min date = today
@@ -858,7 +896,7 @@ function initBooking() {
   }
 
   // Time slots
-  const times = ['10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM'];
+  const times = SLOT_GRID_12;
 
   let _bookingType = 'confirmed';
   let _selectedEsthetician = 'chel-c'; // 'chel-c' | 'timothy'
@@ -916,6 +954,8 @@ function initBooking() {
     timeWrap.innerHTML = '';
     if (requestNotice) requestNotice.style.display = 'none';
 
+    const duration = totalDurationMinutes(selectedServices);
+
     times.forEach(t => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -924,16 +964,20 @@ function initBooking() {
       const isTaken = (_selectedEsthetician === 'timothy' ? timothyBooked : chelcBooked).includes(t);
       const isAdminBlocked = isSlotBlocked(dateStr, t);
       const isManualBlocked = manualBlocked.includes(t);
+      const isTooLate = _toMins(SLOT_GRID_24[SLOT_GRID_12.indexOf(t)]) + duration > CLOSING_MINUTES;
       if (isAdminBlocked || isManualBlocked) {
         btn.disabled = true;
         btn.classList.add('slot-admin-blocked');
       } else if (isTaken) {
         btn.disabled = true;
         btn.classList.add('slot-booked');
+      } else if (isTooLate) {
+        btn.disabled = true;
+        btn.classList.add('slot-too-late');
       }
 
       btn.addEventListener('click', () => {
-        if (isAdminBlocked || isManualBlocked || isTaken) return;
+        if (isAdminBlocked || isManualBlocked || isTaken || isTooLate) return;
         timeWrap.querySelectorAll('.time-slot').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
         selectedTimeInput.value = t;
@@ -1018,6 +1062,7 @@ function initBooking() {
     if (addServiceBtn) addServiceBtn.disabled = true;
     updateEstheticianPicker();
     updateSummary();
+    if (dateInput?.value) renderTimeSlots(dateInput.value);
   });
   dateInput?.addEventListener('change', () => {
     if (dateInput.value && dateInput.value < today) {
@@ -2273,6 +2318,7 @@ window.deleteBooking = id => {
 window.editBooking = id => {
   const b = getDB('lunas_bookings').find(x => x.id === id);
   if (!b) return;
+  document.getElementById('editBookingTitle').textContent = 'Edit Booking';
   document.getElementById('ebId').value           = id;
   document.getElementById('ebName').value         = b.name || '';
   document.getElementById('ebPhone').value        = b.phone || '';
@@ -2286,23 +2332,59 @@ window.editBooking = id => {
   document.getElementById('editBookingModal').classList.add('open');
 };
 
-document.getElementById('editBookingForm')?.addEventListener('submit', e => {
+window.openAddBooking = () => {
+  document.getElementById('editBookingTitle').textContent = 'Add Booking';
+  document.getElementById('ebId').value           = Date.now();
+  document.getElementById('ebName').value         = '';
+  document.getElementById('ebPhone').value        = '';
+  document.getElementById('ebEmail').value        = '';
+  document.getElementById('ebService').value      = '';
+  document.getElementById('ebPrice').value        = '';
+  document.getElementById('ebEsthetician').value  = 'chel-c';
+  document.getElementById('ebDate').value         = new Date().toISOString().split('T')[0];
+  document.getElementById('ebTime').value         = '';
+  document.getElementById('ebNotes').value        = '';
+  document.getElementById('editBookingModal').classList.add('open');
+};
+document.getElementById('addBookingBtn')?.addEventListener('click', () => window.openAddBooking());
+
+document.getElementById('editBookingForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const id = Number(document.getElementById('ebId').value);
   const bookings = getDB('lunas_bookings');
-  const b = bookings.find(x => x.id === id);
-  if (!b) return;
-  b.name        = document.getElementById('ebName').value.trim();
-  b.phone       = document.getElementById('ebPhone').value.trim();
+  let b = bookings.find(x => x.id === id);
+  const isNew = !b;
+
+  const name        = document.getElementById('ebName').value.trim();
+  const phone       = document.getElementById('ebPhone').value.trim();
+  const date        = document.getElementById('ebDate').value;
+  const time        = document.getElementById('ebTime').value;
+  const esthetician = document.getElementById('ebEsthetician').value;
+
+  if (isNew) {
+    if (!name)  { alert('Please enter a client name.'); return; }
+    if (!phone) { alert('Please enter a phone number.'); return; }
+    if (!date)  { alert('Please choose a date.'); return; }
+    if (!time)  { alert('Please choose a time.'); return; }
+    const { chelcBooked, timothyBooked } = await getBookedSlots(date);
+    const esthBooked = esthetician === 'timothy' ? timothyBooked : chelcBooked;
+    if (esthBooked.includes(time) && !confirm('This time overlaps an existing booking for this esthetician — add anyway?')) {
+      return;
+    }
+    b = { id, created: new Date().toISOString(), services: [], discountedPrice: null, promoApplied: null, status: 'confirmed' };
+    bookings.push(b);
+  }
+
+  b.name        = name;
+  b.phone       = phone;
   b.email       = document.getElementById('ebEmail').value.trim();
   b.service     = document.getElementById('ebService').value.trim();
   b.price       = document.getElementById('ebPrice').value.trim();
-  b.esthetician = document.getElementById('ebEsthetician').value;
-  b.date        = document.getElementById('ebDate').value;
-  b.time        = document.getElementById('ebTime').value;
+  b.esthetician = esthetician;
+  b.date        = date;
+  b.time        = time;
   b.notes       = document.getElementById('ebNotes').value.trim();
-  b.modified    = new Date().toISOString();
-  b.modifiedBy  = 'admin';
+  if (!isNew) { b.modified = new Date().toISOString(); b.modifiedBy = 'admin'; }
   setDB('lunas_bookings', bookings);
   document.getElementById('editBookingModal').classList.remove('open');
   renderBookingsTable(); renderDashboard(); renderCalendar();

@@ -2045,6 +2045,13 @@ p { margin-bottom: 1rem; }
 }
 .time-slot.slot-booked::after { content: 'Booked'; display: block; font-size: 0.58rem; font-weight: 600; margin-top: 1px; }
 
+/* ── Too Late For Selected Service(s) To Finish Before Close ── */
+.time-slot.slot-too-late {
+  background: #F3F4F6; border-color: #E5E7EB; color: #9CA3AF;
+  cursor: not-allowed; opacity: 0.65;
+}
+.time-slot.slot-too-late::after { content: 'Runs past close'; display: block; font-size: 0.58rem; font-weight: 600; margin-top: 1px; }
+
 /* ── Esthetician Picker ── */
 .esth-picker { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 .esth-btn {
