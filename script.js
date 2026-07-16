@@ -520,9 +520,10 @@ function getBlockedDates() {
   try { return JSON.parse(localStorage.getItem('lunas_blocked_dates') || 'null') || { months: [], days: [] }; }
   catch(e) { return { months: [], days: [] }; }
 }
-function saveBlockedDates(data) {
-  localStorage.setItem('lunas_blocked_dates', JSON.stringify(data));
-  _fsSet('blocked_dates', data);
+async function saveBlockedDates(data) {
+  const ok = await _fsSet('blocked_dates', data);
+  if (ok) localStorage.setItem('lunas_blocked_dates', JSON.stringify(data));
+  return ok;
 }
 function isDateBlocked(dateStr) {
   const bd = getBlockedDates();
@@ -945,9 +946,19 @@ function initBooking() {
       return;
     }
 
-    // Fetch fresh blocked dates from Firestore for real-time accuracy
+    // Fetch fresh blocked dates from Firestore for real-time accuracy.
+    // Fail CLOSED: if we can't verify availability, don't show any slots as bookable.
     const freshBD = await _fsGet('blocked_dates');
-    if (freshBD) localStorage.setItem('lunas_blocked_dates', JSON.stringify(freshBD));
+    if (!freshBD) {
+      timeWrap.innerHTML = '<div class="slot-closed-msg">⚠️ Couldn\'t verify availability — check your connection and <a href="#" id="retryAvailabilityLink">try again</a>.</div>';
+      document.getElementById('retryAvailabilityLink')?.addEventListener('click', ev => { ev.preventDefault(); renderTimeSlots(dateStr); });
+      selectedTimeInput.value = '';
+      _bookingType = 'confirmed';
+      if (requestNotice) requestNotice.style.display = 'none';
+      updateSummary();
+      return;
+    }
+    localStorage.setItem('lunas_blocked_dates', JSON.stringify(freshBD));
 
     if (isDateBlocked(dateStr)) {
       timeWrap.innerHTML = '<div class="slot-closed-msg">🚫 This date is fully booked out — please choose a different date.</div>';
@@ -1155,11 +1166,17 @@ function initBooking() {
     let _discTotal = _discAmt ? _totalBase - _discAmt : null;
     let _spName    = _discAmt ? _spNameRaw : null;
 
-    // Re-check blocked dates before confirming
+    // Re-check blocked dates before confirming. Fail CLOSED: if we can't verify
+    // against the server, do not proceed — a stale/empty local cache must never
+    // be treated as "unblocked".
     const freshBD2 = await _fsGet('blocked_dates');
-    if (freshBD2) localStorage.setItem('lunas_blocked_dates', JSON.stringify(freshBD2));
-    if (isDateBlocked(dateStr)) {
-      alert('This date is no longer available. Please choose a different date.');
+    if (!freshBD2) {
+      alert('Unable to verify availability right now — please check your connection and try again in a moment.');
+      return;
+    }
+    localStorage.setItem('lunas_blocked_dates', JSON.stringify(freshBD2));
+    if (isDateBlocked(dateStr) || isSlotBlocked(dateStr, timeStr)) {
+      alert('This time is no longer available. Please choose a different date or time.');
       await renderTimeSlots(dateStr);
       selectedTimeInput.value = '';
       updateSummary();
@@ -1182,6 +1199,37 @@ function initBooking() {
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Confirming…';
+
+    // Final authoritative re-check, right before writing — closes the window
+    // where the client sat on the consent modal while the day got blocked.
+    const freshBD3 = await _fsGet('blocked_dates');
+    if (!freshBD3) {
+      alert('Unable to verify availability right now — please check your connection and try again in a moment.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Confirm Booking ✨';
+      return;
+    }
+    localStorage.setItem('lunas_blocked_dates', JSON.stringify(freshBD3));
+    if (isDateBlocked(dateStr) || isSlotBlocked(dateStr, timeStr)) {
+      alert('This time is no longer available. Please choose a different time.');
+      await renderTimeSlots(dateStr);
+      selectedTimeInput.value = '';
+      updateSummary();
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Confirm Booking ✨';
+      return;
+    }
+    const { chelcBooked: _fc2, timothyBooked: _ft2, manualBlocked: _freshManual2 } = await getBookedSlots(dateStr);
+    const _freshEsthBooked2 = _selectedEsthetician === 'timothy' ? _ft2 : _fc2;
+    if (_freshEsthBooked2.includes(timeStr) || _freshManual2.includes(timeStr)) {
+      alert('This time is no longer available. Please choose a different time.');
+      await renderTimeSlots(dateStr);
+      selectedTimeInput.value = '';
+      updateSummary();
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Confirm Booking ✨';
+      return;
+    }
 
     const _hasFromPrice = selectedServices.some(s => s.price.trim().toLowerCase().startsWith('from'));
     const _combinedName = selectedServices.map(s => s.name).join(' + ');
@@ -1781,72 +1829,87 @@ function renderBlockedDates() {
   }
 }
 
+// Fetches the freshest blocked_dates from Firestore (falling back to local
+// cache only if that fetch fails), applies `mutatorFn` to it, and saves.
+// `mutatorFn` should mutate `bd` in place and return `false` to signal a
+// no-op (nothing changed, skip the save). Guards against the admin-side
+// lost-update race where a delayed background sync — or a second block
+// action fired before the first one's round-trip finishes — could silently
+// revert a just-applied block; all calls are serialized through a single
+// queue so a fetch never overlaps with another call's in-flight save.
+// Surfaces a clear error if the Firestore write itself fails instead of
+// silently rendering as if it succeeded.
+let _blockedDatesQueue = Promise.resolve();
+function _mutateBlockedDates(mutatorFn, btn) {
+  const run = async () => {
+    if (btn) btn.disabled = true;
+    try {
+      const fresh = await _fsGet('blocked_dates');
+      const bd = fresh || getBlockedDates();
+      if (mutatorFn(bd) === false) return;
+      const ok = await saveBlockedDates(bd);
+      if (!ok) {
+        alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.');
+        return;
+      }
+      renderBlockedDates();
+      renderCalendar();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+  _blockedDatesQueue = _blockedDatesQueue.then(run, run);
+  return _blockedDatesQueue;
+}
+
 window.unblockMonth = m => {
-  const bd = getBlockedDates();
-  bd.months = (bd.months || []).filter(x => x !== m);
-  saveBlockedDates(bd);
-  renderBlockedDates();
-  renderCalendar();
+  _mutateBlockedDates(bd => { bd.months = (bd.months || []).filter(x => x !== m); });
 };
 window.unblockDay = d => {
-  const bd = getBlockedDates();
-  bd.days = (bd.days || []).filter(x => x !== d);
-  saveBlockedDates(bd);
-  renderBlockedDates();
-  renderCalendar();
+  _mutateBlockedDates(bd => { bd.days = (bd.days || []).filter(x => x !== d); });
 };
 window.unblockTimeSlot = (date, slot) => {
-  const bd = getBlockedDates();
-  bd.timeSlots = (bd.timeSlots || []).filter(s => !(s.date === date && s.slot === slot));
-  saveBlockedDates(bd);
-  renderBlockedDates();
-  renderCalendar();
+  _mutateBlockedDates(bd => { bd.timeSlots = (bd.timeSlots || []).filter(s => !(s.date === date && s.slot === slot)); });
 };
 
 function initBlockedDates() {
-  document.getElementById('blockMonthBtn')?.addEventListener('click', () => {
+  document.getElementById('blockMonthBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('blockMonthBtn');
     const input = document.getElementById('blockMonthInput');
     const val = input?.value;
     if (!val) { alert('Please select a month first.'); return; }
-    const bd = getBlockedDates();
-    if (!(bd.months || []).includes(val)) {
+    await _mutateBlockedDates(bd => {
+      if ((bd.months || []).includes(val)) return false;
       bd.months = [...(bd.months || []), val].sort();
-      saveBlockedDates(bd);
-      renderBlockedDates();
-      renderCalendar();
-    }
+    }, btn);
     if (input) input.value = '';
   });
 
-  document.getElementById('blockDayBtn')?.addEventListener('click', () => {
+  document.getElementById('blockDayBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('blockDayBtn');
     const input = document.getElementById('blockDayInput');
     const val = input?.value;
     if (!val) { alert('Please select a date first.'); return; }
-    const bd = getBlockedDates();
-    if (!(bd.days || []).includes(val)) {
+    await _mutateBlockedDates(bd => {
+      if ((bd.days || []).includes(val)) return false;
       bd.days = [...(bd.days || []), val].sort();
-      saveBlockedDates(bd);
-      renderBlockedDates();
-      renderCalendar();
-    }
+    }, btn);
     if (input) input.value = '';
   });
 
-  document.getElementById('blockSlotBtn')?.addEventListener('click', () => {
+  document.getElementById('blockSlotBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('blockSlotBtn');
     const dateInput = document.getElementById('blockSlotDateInput');
     const timeInput = document.getElementById('blockSlotTimeInput');
     const dateVal = dateInput?.value;
     const timeVal = timeInput?.value;
     if (!dateVal) { alert('Please select a date first.'); return; }
     if (!timeVal) { alert('Please select a time first.'); return; }
-    const bd = getBlockedDates();
-    if (!(bd.timeSlots || []).some(s => s.date === dateVal && s.slot === timeVal)) {
+    await _mutateBlockedDates(bd => {
+      if ((bd.timeSlots || []).some(s => s.date === dateVal && s.slot === timeVal)) return false;
       bd.timeSlots = [...(bd.timeSlots || []), { date: dateVal, slot: timeVal }]
         .sort((a, b) => a.date.localeCompare(b.date) || a.slot.localeCompare(b.slot));
-      saveBlockedDates(bd);
-      renderBlockedDates();
-      renderCalendar();
-    }
+    }, btn);
     if (dateInput) dateInput.value = '';
     if (timeInput) timeInput.value = '';
   });
