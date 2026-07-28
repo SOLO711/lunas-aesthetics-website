@@ -2736,21 +2736,23 @@ async function renderAnalytics(days) {
   const curAvg  = inCur.length  ? curBookRev  / inCur.length  : 0;
   const prevAvg = inPrev.length ? prevBookRev / inPrev.length : 0;
 
+  // Count unique phones, not bookings — a new client with 2+ bookings in the
+  // same period must only count once, not once per booking.
   const knownPhones = new Set(bookings.filter(b => b.date < curStr).map(b => b.phone));
-  const newClients  = inCur.filter(b => !knownPhones.has(b.phone));
+  const newClients  = new Set(inCur.filter(b => !knownPhones.has(b.phone)).map(b => b.phone));
   const knownPrev   = new Set(bookings.filter(b => b.date < prevStr).map(b => b.phone));
-  const prevNewCl   = inPrev.filter(b => !knownPrev.has(b.phone));
+  const prevNewCl   = new Set(inPrev.filter(b => !knownPrev.has(b.phone)).map(b => b.phone));
 
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   const setH = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
   set('anRevVal',    `TTD ${Math.round(curRev).toLocaleString()}`);
   set('anBookVal',   inCur.length);
-  set('anClientVal', newClients.length);
+  set('anClientVal', newClients.size);
   set('anAvgVal',    `TTD ${Math.round(curAvg).toLocaleString()}`);
   setH('anRevDelta',    _anPctChange(curRev,          prevRev));
   setH('anBookDelta',   _anPctChange(inCur.length,    inPrev.length));
-  setH('anClientDelta', _anPctChange(newClients.length, prevNewCl.length));
+  setH('anClientDelta', _anPctChange(newClients.size, prevNewCl.size));
   setH('anAvgDelta',    _anPctChange(curAvg,          prevAvg));
 
   /* ── Overview chart ── */
