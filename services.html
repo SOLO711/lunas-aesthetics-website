@@ -13,7 +13,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
   <meta name="referrer" content="strict-origin-when-cross-origin"/>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%238B4F1C'/><text y='74' x='16' font-size='70' font-family='Georgia,serif' fill='%23C9A84C'>L</text></svg>"/>
-  <link rel="stylesheet" href="styles.css?v=12"/>
+  <link rel="stylesheet" href="styles.css?v=13"/>
 </head>
 <body>
 
@@ -80,34 +80,90 @@
     </div>
 
     <!-- The Lunas Collection — August promo -->
-    <div class="services-category service-cat-section" data-cat="lunas-collection">
-      <div class="category-header">
-        <div class="category-icon">👑</div>
-        <h2>The Lunas Collection</h2>
+    <div class="services-category service-cat-section lc-wrap" data-cat="lunas-collection">
+      <div class="lc-header">
+        <div class="lc-eyebrow">✦ For August ✦</div>
+        <h2 class="lc-title">The Lunas <em>Collection</em></h2>
+        <div class="lc-tagline">Beauty. Confidence. Results.</div>
       </div>
-      <div class="services-note" style="margin-bottom:1.5rem;margin-top:0;">
-        <strong>FOR AUGUST — Beauty. Confidence. Results.</strong> Available 1st–31st August. Consultations are required for some treatments. <a href="book.html" style="color:var(--pink-dark);font-weight:700;">Book online</a> or call <a href="tel:18684639306" style="color:var(--pink-dark);font-weight:700;">1(868) 463-9306</a>
+      <div class="lc-meta">
+        <span><strong>Available</strong> 1st – 31st August</span>
+        <span><strong>Note</strong> Consultations required for some treatments</span>
+        <span><a href="tel:18684639306">📞 1(868) 463-9306</a></span>
+        <span>📍 Chaguanas</span>
       </div>
-      <div class="pricing-grid">
-        <div class="pricing-item">
-          <div><div class="pricing-name">Laser Hair Removal Bundle</div><div class="pricing-desc">Full Hollywood Laser + Half Legs Laser + Armpit Laser + Chin and/or Side Burn Laser • 1h 30m</div></div>
-          <div class="pricing-price">TTD 1,000 <small style="font-size:0.7rem;color:var(--gold-dark);">Saves TTD 1,000</small></div>
+      <div class="lc-grid">
+        <div class="pricing-item lc-card">
+          <div class="lc-card-icon">⚡</div>
+          <div class="pricing-name lc-card-name">Laser Hair Removal Bundle</div>
+          <div class="pricing-desc" style="display:none;">Full Hollywood Laser + Half Legs Laser + Armpit Laser + Chin and/or Side Burn Laser • 1h 30m</div>
+          <ul class="lc-card-list">
+            <li>Full Hollywood Laser</li>
+            <li>Half Legs Laser</li>
+            <li>Armpit Laser</li>
+            <li>Chin and/or Side Burn Laser</li>
+          </ul>
+          <div class="lc-card-foot">
+            <div class="pricing-price lc-card-price">TTD 1,000</div>
+            <div class="lc-card-save">Saves TTD 1,000</div>
+          </div>
         </div>
-        <div class="pricing-item">
-          <div><div class="pricing-name">Waxing Package</div><div class="pricing-desc">Hollywood + Armpits + Eyebrows + Hydrojelly Treatment • 1 hr</div></div>
-          <div class="pricing-price">TTD 400 <small style="font-size:0.7rem;color:var(--gold-dark);">Saves TTD 100</small></div>
+        <div class="pricing-item lc-card">
+          <div class="lc-card-icon">🌸</div>
+          <div class="pricing-name lc-card-name">Waxing Package</div>
+          <div class="pricing-desc" style="display:none;">Hollywood + Armpits + Eyebrows + Hydrojelly Treatment • 1 hr</div>
+          <ul class="lc-card-list">
+            <li>Hollywood</li>
+            <li>Armpits</li>
+            <li>Eyebrows</li>
+            <li>Hydrojelly Treatment</li>
+          </ul>
+          <div class="lc-card-foot">
+            <div class="pricing-price lc-card-price">TTD 400</div>
+            <div class="lc-card-save">Saves TTD 100</div>
+          </div>
         </div>
-        <div class="pricing-item">
-          <div><div class="pricing-name">Facial Package</div><div class="pricing-desc">Free consultation + Customized Reset Facial — perfect if you haven't had a facial in a while (or ever) • 2 hrs</div></div>
-          <div class="pricing-price">TTD 300 <small style="font-size:0.7rem;color:var(--gold-dark);">Saves TTD 300</small></div>
+        <div class="pricing-item lc-card">
+          <div class="lc-card-icon">🧖‍♀️</div>
+          <div class="pricing-name lc-card-name">Facial Package</div>
+          <div class="pricing-desc" style="display:none;">Free consultation + Customized Reset Facial — perfect if you haven't had a facial in a while (or ever) • 2 hrs</div>
+          <ul class="lc-card-list">
+            <li>Free consultation</li>
+            <li>Customized Reset Facial</li>
+            <li>Perfect if you haven't had a facial in a while (or ever)</li>
+          </ul>
+          <div class="lc-card-foot">
+            <div class="pricing-price lc-card-price">TTD 300</div>
+            <div class="lc-card-save">Saves TTD 300</div>
+          </div>
         </div>
-        <div class="pricing-item">
-          <div><div class="pricing-name">The Lunas Effect Weight Loss Bundle</div><div class="pricing-desc">1 month of Tirzepatide + 2 Cavitation Sessions + 1 session of Lemon Bottle or Lipo Lab</div></div>
-          <div class="pricing-price">TTD 1,800 <small style="font-size:0.7rem;color:var(--gold-dark);">Saves TTD 1,000</small></div>
+        <div class="pricing-item lc-card lc-card--featured">
+          <div class="lc-card-icon">💉</div>
+          <div class="pricing-name lc-card-name">The Lunas Effect Weight Loss Bundle</div>
+          <div class="pricing-desc" style="display:none;">1 month of Tirzepatide + 2 Cavitation Sessions + 1 session of Lemon Bottle or Lipo Lab</div>
+          <ul class="lc-card-list">
+            <li>1 month of Tirzepatide</li>
+            <li>2 Cavitation Sessions</li>
+            <li>1 session of Lemon Bottle or Lipo Lab</li>
+          </ul>
+          <div class="lc-card-foot">
+            <div class="pricing-price lc-card-price">TTD 1,800</div>
+            <div class="lc-card-save">Saves TTD 1,000</div>
+          </div>
         </div>
-        <div class="pricing-item">
-          <div><div class="pricing-name">Body Contouring Bundle</div><div class="pricing-desc">4 sessions of stomach cavitation, lymphatic drainage massage &amp; laser Lipo therapy • 2 hrs</div></div>
-          <div class="pricing-price">TTD 1,000 <small style="font-size:0.7rem;color:var(--gold-dark);">Saves TTD 400</small></div>
+        <div class="pricing-item lc-card">
+          <div class="lc-card-icon">🔥</div>
+          <div class="pricing-name lc-card-name">Body Contouring Bundle</div>
+          <div class="pricing-desc" style="display:none;">4 sessions of stomach cavitation, lymphatic drainage massage &amp; laser Lipo therapy • 2 hrs</div>
+          <ul class="lc-card-list">
+            <li>4 sessions of stomach cavitation</li>
+            <li>Lymphatic drainage massage</li>
+            <li>Laser Lipo therapy</li>
+          </ul>
+          <div class="lc-card-foot">
+            <div class="pricing-price lc-card-price">TTD 1,000</div>
+            <div class="lc-card-save">Saves TTD 400</div>
+          </div>
         </div>
       </div>
     </div>
