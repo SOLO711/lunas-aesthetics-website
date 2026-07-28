@@ -656,19 +656,15 @@ p { margin-bottom: 1rem; }
   padding: 1.6rem 1.5rem 1.4rem;
 }
 .pricing-item.lc-card:hover { border-color: var(--gold-dark); background: var(--white); transform: translateY(-4px); }
-.lc-card-icon {
-  width: 46px; height: 46px; border-radius: 50%;
-  background: var(--gold-light); display: flex; align-items: center; justify-content: center;
-  font-size: 1.3rem; margin-bottom: 0.9rem;
-}
-.lc-card-name { font-family: var(--font-heading); font-size: 1.05rem; margin: 0 0 0.7rem; }
+.lc-card-name { font-family: var(--font-heading); font-size: 1.05rem; margin: 0 0 0.8rem; }
+.lc-card-name::before { content: ''; display: block; width: 28px; height: 3px; background: var(--gold); border-radius: 2px; margin-bottom: 0.7rem; }
 .lc-card-list { list-style: none; margin: 0 0 1.1rem; padding: 0; flex: 1; }
 .lc-card-list li {
   font-size: 0.83rem; color: var(--text-light); padding: 0.4rem 0 0.4rem 1.05rem;
   position: relative; line-height: 1.4; border-bottom: 1px dashed rgba(224,206,173,0.7);
 }
 .lc-card-list li:last-child { border-bottom: none; }
-.lc-card-list li::before { content: '✦'; position: absolute; left: 0; top: 0.5rem; color: var(--gold); font-size: 0.68rem; }
+.lc-card-list li::before { content: ''; position: absolute; left: 0; top: 0.72rem; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
 .lc-card-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border); }
 .pricing-item.lc-card .lc-card-price { font-size: 1.5rem; margin-left: 0; }
 .lc-card-save { font-size: 0.68rem; font-weight: 700; color: var(--gold-dark); background: var(--gold-light); padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
@@ -688,10 +684,8 @@ p { margin-bottom: 1rem; }
   font-size: 0.64rem; font-weight: 800; letter-spacing: 0.12em;
   padding: 4px 12px; border-radius: 20px;
 }
-.lc-card--featured .lc-card-icon { background: rgba(255,255,255,0.14); }
 .lc-card--featured .lc-card-name { color: white; }
 .lc-card--featured .lc-card-list li { color: rgba(255,255,255,0.78); border-bottom-color: rgba(255,255,255,0.16); }
-.lc-card--featured .lc-card-list li::before { color: var(--gold); }
 .lc-card--featured .lc-card-foot { border-top-color: rgba(255,255,255,0.22); }
 .lc-card--featured .lc-card-price { color: white; }
 .lc-card--featured .lc-card-save { background: rgba(255,255,255,0.16); color: var(--gold); }
