@@ -772,6 +772,13 @@ function initBooking() {
 
   // Load from localStorage if admin has customised, otherwise use defaults
   const services = JSON.parse(localStorage.getItem('lunas_services') || 'null') || {
+    'The Lunas Collection': [
+      { name: 'Laser Hair Removal Bundle', price: 'TTD 1,000', duration: '1h 30m' },
+      { name: 'Waxing Package', price: 'TTD 400', duration: '1 hr' },
+      { name: 'Facial Package', price: 'TTD 300', duration: '2 hrs' },
+      { name: 'The Lunas Effect Weight Loss Bundle', price: 'TTD 1,800', duration: '' },
+      { name: 'Body Contouring Bundle', price: 'TTD 1,000', duration: '2 hrs' },
+    ],
     'Spa Packages': [
       { name: 'The Goddess Glow Package', price: 'TTD 900', duration: '3h 30m' },
       { name: 'The It Girl Package', price: 'TTD 600', duration: '2h 5m' },
@@ -848,9 +855,13 @@ function initBooking() {
     ],
   };  // end services defaults
 
+  // Categories that must not be bookable online (client instructions). Removing
+  // a name from this list re-enables it — no other logic needs to change.
+  const DISABLED_BOOKING_CATEGORIES = ['Pedicures'];
+
   // Populate category dropdown
   if (catSelect) {
-    Object.keys(services).forEach(cat => {
+    Object.keys(services).filter(cat => !DISABLED_BOOKING_CATEGORIES.includes(cat)).forEach(cat => {
       const opt = document.createElement('option');
       opt.value = cat;
       opt.textContent = cat;
@@ -874,7 +885,7 @@ function initBooking() {
     const params = new URLSearchParams(location.search);
     const preCat = params.get('cat');
     const preSvc = params.get('svc');
-    if (preCat) {
+    if (preCat && !DISABLED_BOOKING_CATEGORIES.includes(preCat)) {
       catSelect.value = preCat;
       catSelect.dispatchEvent(new Event('change'));
       if (preSvc && svcSelect) {
@@ -1373,13 +1384,13 @@ function initBooking() {
     if (!freshData) return;
     const prevCat = catSelect.value;
     catSelect.innerHTML = '<option value="">Select a category</option>';
-    Object.keys(freshData).forEach(cat => {
+    Object.keys(freshData).filter(cat => !DISABLED_BOOKING_CATEGORIES.includes(cat)).forEach(cat => {
       const opt = document.createElement('option');
       opt.value = cat; opt.textContent = cat;
       catSelect.appendChild(opt);
     });
-    catSelect.value = prevCat;
-    if (prevCat) catSelect.dispatchEvent(new Event('change'));
+    catSelect.value = DISABLED_BOOKING_CATEGORIES.includes(prevCat) ? '' : prevCat;
+    if (catSelect.value) catSelect.dispatchEvent(new Event('change'));
   });
 }
 initBooking();
@@ -3443,6 +3454,7 @@ initCoursesMgr();
     'Body Contouring':        'contouring',
     'Intimate Brightening':   'brightening',
     'Weight Loss & Lipo Shots': 'lipo',
+    'The Lunas Collection':   'lunas-collection',
   };
 
   function applyServices() {
@@ -3508,6 +3520,7 @@ initCoursesMgr();
     contouring:  'Body Contouring',
     brightening: 'Intimate Brightening',
     lipo:        'Weight Loss & Lipo Shots',
+    'lunas-collection': 'The Lunas Collection',
   };
 
   // Inject bottom sheet markup
@@ -3578,12 +3591,12 @@ initCoursesMgr();
     item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
   }
 
-  // Attach to items already in the static HTML
-  document.querySelectorAll('.pricing-item').forEach(attachPricingItem);
+  // Attach to items already in the static HTML (skip categories disabled for online booking)
+  document.querySelectorAll('.pricing-item:not([data-book-disabled])').forEach(attachPricingItem);
 
   // Watch for admin-added services injected after Firestore sync
   const _qbObs = new MutationObserver(() => {
-    document.querySelectorAll('.pricing-item:not([data-qb-attached])').forEach(attachPricingItem);
+    document.querySelectorAll('.pricing-item:not([data-qb-attached]):not([data-book-disabled])').forEach(attachPricingItem);
   });
   document.querySelectorAll('.pricing-grid').forEach(grid => _qbObs.observe(grid, { childList: true }));
 })();
@@ -3649,6 +3662,13 @@ function initServicesMgr() {
   if (!panel) return;
 
   const DEFAULT_SERVICES = {
+    'The Lunas Collection': [
+      { name: 'Laser Hair Removal Bundle', price: 'TTD 1,000', duration: '1h 30m' },
+      { name: 'Waxing Package', price: 'TTD 400', duration: '1 hr' },
+      { name: 'Facial Package', price: 'TTD 300', duration: '2 hrs' },
+      { name: 'The Lunas Effect Weight Loss Bundle', price: 'TTD 1,800', duration: '' },
+      { name: 'Body Contouring Bundle', price: 'TTD 1,000', duration: '2 hrs' },
+    ],
     'Spa Packages': [
       { name: 'The Goddess Glow Package', price: 'TTD 900', duration: '3h 30m' },
       { name: 'The It Girl Package', price: 'TTD 600', duration: '2h 5m' },

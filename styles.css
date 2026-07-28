@@ -613,6 +613,13 @@ p { margin-bottom: 1rem; }
   transition: var(--transition);
 }
 .pricing-item:hover { border-color: var(--pink-dark); background: var(--pink-bg); transform: translateX(4px); }
+/* Uses filter (not opacity) since a page-wide scroll-reveal script sets
+   inline style.opacity on .pricing-item, which would otherwise win over
+   any CSS opacity rule regardless of selector specificity. */
+.pricing-item[data-book-disabled] { filter: grayscale(55%) brightness(0.98); cursor: default; }
+.pricing-item[data-book-disabled] .pricing-name,
+.pricing-item[data-book-disabled] .pricing-price { color: var(--text-light); }
+.pricing-item[data-book-disabled]:hover { transform: none; border-color: var(--border); background: var(--white); }
 .pricing-name { font-weight: 700; color: var(--dark); font-size: 0.93rem; }
 .pricing-desc { font-size: 0.78rem; color: var(--text-light); margin-top: 2px; }
 .pricing-price { font-family: var(--font-heading); font-size: 1.35rem; color: var(--pink-dark); font-weight: 700; white-space: nowrap; margin-left: 1rem; }
@@ -2579,6 +2586,9 @@ tr.client-blocked td { background: #FFF1F1; }
   transform: translateX(4px);
 }
 .pricing-item:active { background: var(--pink-light); }
+.pricing-item[data-book-disabled] { cursor: default; }
+.pricing-item[data-book-disabled]:hover,
+.pricing-item[data-book-disabled]:active { background: var(--white); border-color: var(--border); transform: none; }
 
 /* Desktop — center as a floating card */
 @media (min-width: 600px) {
