@@ -461,6 +461,8 @@ const EMAILJS_PUBLIC_KEY          = 'aWI5mNtamAEwmv6Zq';
 const EMAILJS_SERVICE_ID          = 'service_uloa9rp';
 const EMAILJS_TEMPLATE_ID         = 'template_m4ug865';     // business notification
 const EMAILJS_CLIENT_TEMPLATE_ID  = 'template_kfqntkg';        // customer confirmation
+const EMAILJS_PRO_TEMPLATE_ID        = 'template_6mlyx2a'; // Professionals Only order — business notification
+const EMAILJS_PRO_CLIENT_TEMPLATE_ID = 'template_499gpde';  // Professionals Only order — client invoice
 
 if (typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY') {
   emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
@@ -503,7 +505,7 @@ async function _fsSet(key, val) {
   } catch(e) { console.warn('[Firestore] write failed [' + key + ']:', e.message); return false; }
 }
 (async function _syncOnLoad() {
-  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates', 'manual_events', 'course_enrollments'];
+  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates', 'manual_events', 'course_enrollments', 'pro_orders', 'pro_order_counter'];
   const results = await Promise.allSettled(keys.map(k => _fsGet(k)));
   keys.forEach((k, i) => {
     const r = results[i];
@@ -542,6 +544,32 @@ function getCourseEnrollments() {
 function saveCourseEnrollments(data) {
   localStorage.setItem('lunas_course_enrollments', JSON.stringify(data));
   _fsSet('course_enrollments', data);
+}
+
+/* ── Professional Orders helpers ── */
+function getProOrders() {
+  try { return JSON.parse(localStorage.getItem('lunas_pro_orders') || '[]'); }
+  catch(e) { return []; }
+}
+async function saveProOrderRecord(order) {
+  const all = getProOrders();
+  all.push(order);
+  localStorage.setItem('lunas_pro_orders', JSON.stringify(all));
+  return await _fsSet('pro_orders', all);
+}
+function saveProOrders(all) {
+  localStorage.setItem('lunas_pro_orders', JSON.stringify(all));
+  return _fsSet('pro_orders', all);
+}
+async function nextProInvoiceId() {
+  let counter = await _fsGet('pro_order_counter');
+  if (typeof counter !== 'number' || isNaN(counter)) {
+    counter = parseInt(localStorage.getItem('lunas_pro_order_counter') || '0', 10) || 0;
+  }
+  counter += 1;
+  localStorage.setItem('lunas_pro_order_counter', String(counter));
+  await _fsSet('pro_order_counter', counter);
+  return 'INV-LEABUSH' + String(counter).padStart(6, '0');
 }
 
 /* ── Manual Events helpers ── */
@@ -696,6 +724,60 @@ function sendClientEmail(toName, toEmail, service, price, date, time, isRequest,
     time:         time || '',
     status_line:  statusLine,
     banking_info: bankingInfo,
+  });
+}
+
+/* ── Professionals Only order emails ── */
+function _proDeliveryLine(order) {
+  return order.deliveryMethod === 'delivery'
+    ? `Delivery (${order.island === 'tobago' ? 'Tobago' : 'Trinidad'})`
+    : 'Pickup at the salon';
+}
+function _proItemLines(order) {
+  return order.items.map(i => `  • ${i.name} x${i.qty} — TTD ${(i.price * i.qty).toFixed(2)}`).join('\n');
+}
+function _proItemRowsHtml(order) {
+  return order.items.map(i => `
+    <tr>
+      <td style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#2C1800;padding:8px 0;border-bottom:1px solid #EFE3D0;">${safe(i.name)}</td>
+      <td align="center" style="font-family:'Inter',Arial,sans-serif;font-size:13px;color:#5A4030;padding:8px 0;border-bottom:1px solid #EFE3D0;">${i.qty}</td>
+      <td align="right" style="font-family:'Playfair Display',Georgia,serif;font-size:13px;font-weight:600;color:#8B4F1C;padding:8px 0;border-bottom:1px solid #EFE3D0;">TTD ${(i.price * i.qty).toFixed(2)}</td>
+    </tr>`).join('');
+}
+
+function sendProBusinessEmail(order) {
+  if (EMAILJS_PRO_TEMPLATE_ID === 'YOUR_PRO_TEMPLATE_ID') return Promise.resolve();
+  if (typeof emailjs === 'undefined') return Promise.resolve();
+  return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_PRO_TEMPLATE_ID, {
+    invoice_id:       order.invoiceId,
+    items:            _proItemLines(order),
+    subtotal:         `TTD ${order.subtotal.toFixed(2)}`,
+    shipping:         `TTD ${order.shipping.toFixed(2)}`,
+    total:            `TTD ${order.total.toFixed(2)}`,
+    from_name:        order.name,
+    from_email:       order.email,
+    from_phone:       order.phone,
+    delivery_method:  _proDeliveryLine(order),
+    shipping_address: order.address || 'N/A — pickup at salon',
+  });
+}
+
+function sendProClientEmail(order) {
+  if (!order.email) return Promise.resolve();
+  if (EMAILJS_PRO_CLIENT_TEMPLATE_ID === 'YOUR_PRO_CLIENT_TEMPLATE_ID') return Promise.resolve();
+  if (typeof emailjs === 'undefined') return Promise.resolve();
+  return emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_PRO_CLIENT_TEMPLATE_ID, {
+    to_name:          order.name,
+    to_email:         order.email,
+    invoice_id:       order.invoiceId,
+    date:             new Date().toLocaleDateString('en-TT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    items:            _proItemLines(order),
+    items_html:       _proItemRowsHtml(order),
+    subtotal:         `TTD ${order.subtotal.toFixed(2)}`,
+    shipping:         `TTD ${order.shipping.toFixed(2)}`,
+    total:            `TTD ${order.total.toFixed(2)}`,
+    delivery_method:  _proDeliveryLine(order),
+    client_address:   order.address || 'Pickup at the salon',
   });
 }
 
@@ -1525,6 +1607,259 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async e => {
 
 renderCart();
 
+/* ── Professionals Only Shop (Bushbalm Pro wholesale) ── */
+function initProShop() {
+  const grid = document.getElementById('proProductGrid');
+  if (!grid) return;
+
+  const PRO_PRODUCTS = [
+    { id: 1,  name: "Basic Starter Kit: Best for Beginners", shortDesc: "A curated starter bundle covering Nude, Watermelon Sugar & Bermuda aftercare, plus Roller Rescue serum and toner pads. Includes free backbar oil, window sticker, tent cards & retail display box.", price: 3500.00, image: "basic-starter-kit.jpeg" },
+    { id: 2,  name: "Bushbalm Pro Starter Kit", shortDesc: "The complete pro bundle: full oil & scrub range across scents, Hydrogel Vajacial strips, Roller Rescue serum, toner pads & Brightening Gel — plus free backbar oils, window sticker, tent cards & retail display box.", price: 4500.00, image: "pro-starter-kit.jpeg" },
+    { id: 3,  name: "x6 Nude · Ingrown Hair + Pre-Post Wax Oil (1 fl oz)", shortDesc: "Antioxidant-rich oil that softens skin and reduces ingrown hairs & razor bumps after hair removal. Signature barely-there tea tree scent.", price: 1250.00, image: "nude-oil.jpeg" },
+    { id: 4,  name: "x6 Nude · Ingrown Hair Exfoliating Scrub (8 fl oz)", shortDesc: "Lightweight sugar scrub that clears pores and softens skin pre- and post-treatment. Same signature Nude scent.", price: 1300.00, image: "nude-scrub.jpeg" },
+    { id: 5,  name: "x6 Vanilla Tangerine · Ingrown Hair Oil (1 fl oz)", shortDesc: "Antioxidant-rich blend that improves the look of irritation and ingrown hairs. Soft vanilla-tangerine aroma.", price: 1250.00, image: "vanilla-tangerine-oil.jpeg" },
+    { id: 6,  name: "x6 Vanilla Tangerine · Exfoliating Body Scrub (8 fl oz)", shortDesc: "Hydrating sugar scrub that smooths skin pre- and post-hair removal. Soft vanilla-tangerine aroma.", price: 1300.00, image: "vanilla-tangerine-scrub.jpeg" },
+    { id: 7,  name: "x6 Unscented Hydrogel Vajacial Mask Set", shortDesc: "Cooling hydrogel masks (triangle + side strips) infused with hyaluronic acid, aloe & green tea to calm and hydrate post-treatment skin.", price: 650.00, image: "hydrogel-vajacial-mask.jpeg" },
+    { id: 8,  name: "x6 AHA/BHA Roller Rescue Soothing Serum", shortDesc: "Lightweight chemical exfoliant with a cooling stainless-steel rollerball — smooths texture, clears pores & reduces redness after hair removal.", price: 1250.00, image: "roller-rescue-serum.jpeg" },
+    { id: 9,  name: "x6 Bermuda · Dark Spot Oil (1 fl oz)", shortDesc: "Six natural ingredients that brighten, soften and reduce the look of dark spots anywhere on the body. Fresh citrus scent.", price: 1250.00, image: "bermuda-oil.jpeg" },
+    { id: 10, name: "x6 Bermuda · Dark Spot Exfoliating Scrub (8 fl oz)", shortDesc: "Hydrating sugar scrub that smooths skin while reducing the look of dark spots. Fresh citrus scent.", price: 1300.00, image: "bermuda-scrub.jpeg" },
+    { id: 11, name: "x6 After Dark Brightening Gel (3% TXA / 2% Niacinamide)", shortDesc: "Overnight brightening gel for intimate skin — reduces dark spots and enhances radiance. Gynecologist & dermatologist approved.", price: 1250.00, image: "after-dark-gel.jpeg" },
+    { id: 12, name: "x6 Radiant Reset Exfoliating Toner Pads", shortDesc: "Alcohol-free AHA/BHA/TXA toner pads that smooth & brighten without disrupting the skin's pH. Safe for bikini line to full body.", price: 1250.00, image: "radiant-reset-pads.jpeg" },
+    { id: 13, name: "x24 Summer Vacay Ingrown Hair Oil & Scrub Bundle", shortDesc: "Pre- and after-care duo in a summery vanilla-blossom-and-almond scent — reduces irritation, ingrown hairs and bumps.", price: 3500.00, image: "summer-vacay-bundle.jpeg" },
+    { id: 14, name: "x12 Mini Ingrown Hair Oil (Assorted)", shortDesc: "Travel-size ingrown hair oils in Nude, Watermelon Sugar, Vanilla Tangerine & Bermuda — perfect for retail add-ons or trial sizes.", price: 600.00, image: "mini-ingrown-hair-oil.jpeg" },
+    { id: 15, name: "Frosty Fizz Hard Wax Beads (2.42 lb / 1.1 kg)", shortDesc: "Low-temperature Italian hard wax beads with a cool, icy finish — rosin-based formula for fast, clean strip-free removal on larger areas.", price: 350.00, image: "frosty-fizz-wax.jpeg" },
+    { id: 16, name: "Lunar Lilac Hard Wax Beads (1.67 lb / 750 g)", shortDesc: "Soft lilac-toned hard wax beads that melt smooth and grip hair effectively — gentle enough for sensitive areas, ideal for full-body waxing.", price: 300.00, image: "lunar-lilac-wax.jpeg" },
+    { id: 17, name: "Coconut Cookie Hard Wax Beads (1 lb / 453 g)", shortDesc: "Hypoallergenic rosin-free hard wax with a warm coconut cookie scent — melts like butter for effortless application on face, chest & back.", price: 200.00, image: "coconut-cookie-wax.jpeg" },
+    { id: 18, name: "Azulene Film Hard Wax Beads (2.2 lb / 1 kg)", shortDesc: "Calming azulene-infused film wax that forms a flexible, easy-to-remove strip — non-irritating and ideal for sensitive skin.", price: 350.00, image: "azulene-film-wax.jpeg" },
+    { id: 19, name: "White Chocolate Film Hard Wax Beads (2.2 lb / 1 kg)", shortDesc: "Creamy, sweet-scented film hard wax that hardens into a flexible strip for gentle, low-pain hair removal on all body areas.", price: 350.00, image: "white-chocolate-wax.jpeg" },
+    { id: 20, name: "Sensi Clear Rosin Free Hard Wax (2.2 lb / 1 kg)", shortDesc: "Crystal-clear, rosin-free hard wax formulated for the most sensitive skin — hypoallergenic and gentle on delicate areas.", price: 350.00, image: "sensi-clear-wax.jpeg" },
+    { id: 21, name: "White Strawberry Thermochromic Hard Wax (2.2 lb / 1 kg)", shortDesc: "Rosin-free hard wax that shifts to a pearly pink when warmed and ready to use — a visual cue built for precision application.", price: 350.00, image: "white-strawberry-wax.jpeg" },
+    { id: 22, name: "Azulene Soft Wax (14 oz / 397 g)", shortDesc: "Flexible, less-sticky roll or tin soft wax infused with calming azulene — suited to large areas and higher-volume waxing.", price: 115.00, image: "azulene-soft-wax.jpeg" },
+    { id: 23, name: "Natural Soft Wax — No-Sticky Formula (14 oz / 397 g)", shortDesc: "Smooth amber soft wax with a no-sticky finish — versatile everyday formula for full-body strip waxing.", price: 115.00, image: "natural-soft-wax.jpeg" },
+    { id: 24, name: "Aloe Vera Soft Wax (14 oz / 397 g)", shortDesc: "Soothing aloe vera-enriched soft wax recommended for coarse hair and larger treatment areas.", price: 115.00, image: "aloe-vera-soft-wax.jpeg" },
+    { id: 25, name: "Zinc Oxide Sensitive Skin Soft Wax Cartridges (3.38 oz, Pack of 4)", shortDesc: "Zinc oxide roll-on cartridges that buffer sensitive skin during waxing — reduces bruising and discomfort on delicate areas.", price: 200.00, image: "zinc-oxide-cartridge-4pk.jpeg" },
+    { id: 26, name: "Spa Choice Zinc Oxide Creamy Soft Wax (14 oz / 397 g)", shortDesc: "Creamy zinc oxide soft wax tin for facial and full-body waxing on fine to medium hair — extra buffer for sensitive skin.", price: 115.00, image: "zinc-oxide-creamy-soft-wax.jpeg" },
+    { id: 27, name: "Soft Wax Pearl for Face & Eyebrows Mini Tin (5 oz / 141 g)", shortDesc: "Rosin-free hypoallergenic pearl-white soft wax built for precision face and eyebrow work — gentle on delicate skin.", price: 60.00, image: "soft-wax-pearl-mini-tin.jpeg" },
+    { id: 28, name: "Spa Choice Rosin Free Gel Soft Wax — Lavender (14 oz / 397 g)", shortDesc: "Light purple, rosin-free gel wax with a relaxing lavender scent — hypoallergenic formula safe for the most sensitive skin types.", price: 115.00, image: "rosin-free-gel-lavender.jpeg" },
+    { id: 29, name: "Noire Soft Wax Cartridges (3.38 oz, Pack of 4)", shortDesc: "High-density titanium dioxide roll-on cartridges built for short, coarse hair — advanced adhesion with fewer passes.", price: 200.00, image: "noire-cartridge-4pk.jpeg" },
+    { id: 30, name: "Extra Comfort Pink Glow Epilating Strips (100 pcs, 2.75 x 7.83 in)", shortDesc: "Micro-engineered pink strips with superior adhesion to soft wax — clean removal on large body areas, trimmable for smaller ones.", price: 110.00, image: "epilating-strips-pink-glow.jpeg" },
+    { id: 31, name: "Extra Comfort Epilating Strips (100 pcs, 2.75 x 7.83 in)", shortDesc: "Classic non-woven epilating strips with strong wax adhesion for efficient, everyday soft-wax removal.", price: 80.00, image: "epilating-strips-classic.jpeg" },
+    { id: 32, name: "After Wax Lotion — Azulene (8.45 oz / 250 ml)", shortDesc: "Fast-absorbing, non-greasy post-wax lotion with soothing chamomile and azulene — leaves a cooling, satin finish.", price: 100.00, image: "after-wax-lotion-azulene.jpeg" },
+    { id: 33, name: "Pre Waxing Lotion — Natural Aloe Vera Extract (8.45 oz / 250 ml)", shortDesc: "Aloe vera-enriched pre-wax lotion that preps and calms the skin before treatment.", price: 100.00, image: "pre-wax-lotion-aloe-vera.jpeg" },
+    { id: 34, name: "After Waxing Cooling Gel — Witch Hazel, Aloe & Menthol (8.45 fl oz / 250 ml)", shortDesc: "Oil-free post-wax gel with witch hazel, aloe and a cooling menthol finish — won't clog pores or follicles.", price: 100.00, image: "after-wax-cooling-gel.jpeg" },
+    { id: 35, name: "Pre Waxing Cosmetic Talc (5.29 oz / 150 g)", shortDesc: "Ultra-purified, super-absorbent pre-wax powder that removes excess moisture for better wax grip.", price: 100.00, image: "pre-wax-cosmetic-talc.jpeg" },
+    { id: 36, name: "Digital Double Cartridge Wax Heater (WX-1D x2)", shortDesc: "Variable-temperature double roll-on heater with digital display and detachable base — run two cartridge colors at once.", price: 800.00, image: "double-cartridge-heater.jpeg" },
+    { id: 37, name: "Large Professional Wax Warmer — Pink Elite Series (5.5 lb)", shortDesc: "Salon-grade 5.5 lb pot warmer with precise electronic temperature control and a detachable aluminum pot for easy cleaning.", price: 1600.00, image: "pink-pot-5.5lb.jpeg" },
+    { id: 38, name: "Mini W-Cube Metallic Warmer (1 lb, Digital)", shortDesc: "Compact digital pot warmer with a removable metal liner — quick, even meltdown for smaller wax batches. Available in assorted metallic finishes.", price: 400.00, image: "mini-w-cube-warmer.jpeg" },
+    { id: 39, name: "Professional Double Wax Warmer (2 x 1 lb)", shortDesc: "Twin-pot warmer with detachable aluminum liners — run two wax types side by side for back-to-back appointments.", price: 750.00, image: "double-warmer.jpeg" },
+    { id: 40, name: "Large Professional Wax Warmer — Sage Elite Series (5.5 lb)", shortDesc: "Salon-grade 5.5 lb pot warmer with precise electronic temperature control and a detachable aluminum pot for easy cleaning.", price: 1600.00, image: "sage-elite-pot-5.5lb.jpeg" },
+    { id: 41, name: "Large Professional Wax Warmer — Wild Luxe Leopard Elite Series (5.5 lb)", shortDesc: "Salon-grade 5.5 lb pot warmer in a bold leopard-print finish, with precise electronic temperature control and a detachable aluminum pot.", price: 1850.00, image: "leopard-pot-5.5lb.jpeg" },
+    { id: 42, name: "Wax Warmer — Wild Luxe Leopard Elite Series (16 oz)", shortDesc: "Compact leopard-print pot warmer with silicone liner — ideal for smaller wax batches or single-service stations.", price: 600.00, image: "leopard-pot-small.jpeg" },
+    { id: 43, name: "Empty Wax Can (14 oz / 397 g)", shortDesc: "Refillable empty tin for melting and storing any hard wax bead flavor — fits most standard pot warmers.", price: 50.00, image: "empty-wax-can.jpeg" },
+    { id: 44, name: "Silicone Wax Stirring Spatula (12 in)", shortDesc: "Heat-resistant silicone spatula for stirring and applying wax — faster and easier to clean than wooden applicators.", price: 60.00, image: "silicone-spatula.jpeg" },
+    { id: 45, name: "Dark Spot Oil — Backbar (6.7 fl oz / 200 mL, Bermuda)", shortDesc: "Backbar-size Bermuda Dark Spot Oil for in-service use — brightens hyperpigmentation, soothes skin post-treatment, and softens skin & body hair. Fresh citrus scent.", price: 245.00, image: "dark-spot-oil-backbar.jpeg" },
+    { id: 46, name: "Brightening Hydrogel Vajacial Triangle Mask — Backbar (36 Units)", shortDesc: "Vitamin C & niacinamide hydrogel triangle mask for the backbar — brightens the bikini line and mons pubis post-hair-removal in as little as 10 minutes.", price: 1100.00, image: "vajacial-triangle-mask-backbar.jpeg" },
+    { id: 47, name: "Ingrown Hair + Pre-Post Wax Oil — Backbar (6.7 fl oz / 200 mL, Watermelon Sugar)", shortDesc: "Backbar-size Watermelon Sugar oil for in-service use — soothes post-treatment, prevents ingrown hairs, and softens skin & body hair. Juicy, sweet scent.", price: 245.00, image: "ingrown-hair-oil-backbar-watermelon.jpeg" },
+    { id: 48, name: "x6 Ingrown Hair Pre/Post-Wax Oil (1 fl oz, Vanilla Coconut)", shortDesc: "Limited-edition Vanilla Coconut ingrown hair oil — antioxidant-rich blend that reduces the look of ingrown hairs and irritation. Warm coconut-vanilla scent.", price: 530.00, image: "ingrown-hair-oil-vanilla-coconut.jpeg" },
+    { id: 49, name: "The Ultimate Brightening Duo (Toner Pads x6 + Bermuda Oil x6)", shortDesc: "Bundle of Radiant Reset Exfoliating Toner Pads + Bermuda Dark Spot Oil — a complete brightening aftercare recommendation for clients.", price: 825.00, image: "ultimate-brightening-duo.jpeg" },
+    { id: 50, name: "x12 Mini Ingrown Hair Oil (5 mL, Vanilla Tangerine)", shortDesc: "Travel/discovery-size ingrown hair oil dropper — softens skin and reduces razor bumps & ingrown hairs. Sweet tangerine-vanilla creamsicle scent.", price: 325.00, image: "mini-ingrown-hair-oil-vanilla-tangerine.jpeg" },
+    { id: 51, name: "x6 Ingrown Hair Exfoliating Body Scrub (8 fl oz, Vanilla Coconut)", shortDesc: "Limited-edition Vanilla Coconut sugar scrub — clears pores and softens skin pre- and post-treatment to maximize hair-removal results.", price: 470.00, image: "exfoliating-body-scrub-vanilla-coconut.jpeg" },
+    { id: 52, name: "x6 Highlighting Body Glaze (3.3 fl oz, Vanilla Coconut)", shortDesc: "Lightweight squalane & shea butter body glaze — hydrates and leaves a soft, radiant sheen without grease or glitter. Vanilla-coconut scent.", price: 570.00, image: "highlighting-body-glaze-vanilla-coconut.jpeg" },
+    { id: 53, name: "x6 Brightening Hydrogel Vajacial Mask Set (Triangle + Side Strips)", shortDesc: "Vitamin C & niacinamide hydrogel mask set — triangle mask plus side strips for bikini line, mons pubis & underarms. Hydrates & brightens in 10 minutes.", price: 350.00, image: "vajacial-mask-set.jpeg" },
+  ];
+
+  grid.innerHTML = PRO_PRODUCTS.map(p => `
+    <div class="pro-product-card">
+      <div class="pro-product-img">${p.image ? `<img src="products-pro/${p.image}" alt="${safe(p.name)}" loading="lazy"/>` : `<div class="pro-product-img-fallback">🧴</div>`}</div>
+      <div class="pro-product-body">
+        <h3>${safe(p.name)}</h3>
+        <p>${safe(p.shortDesc)}</p>
+      </div>
+      <div class="pro-product-footer">
+        <div class="pro-product-price">TTD ${p.price.toFixed(2)}</div>
+        <button class="btn-add-pro-cart" data-id="${p.id}">Add to Cart</button>
+      </div>
+    </div>`).join('');
+
+  let proCart = JSON.parse(localStorage.getItem('lunas_pro_cart') || '[]');
+  function saveProCart() { localStorage.setItem('lunas_pro_cart', JSON.stringify(proCart)); }
+  function proCartSubtotal() { return proCart.reduce((s, i) => s + i.price * i.qty, 0); }
+
+  function renderProCart() {
+    const itemsWrap = document.getElementById('proCartItems');
+    const subtotalEl = document.getElementById('proCartSubtotal');
+    const countEl = document.getElementById('proCartCount');
+    const totalQty = proCart.reduce((s, i) => s + i.qty, 0);
+    if (countEl) { countEl.textContent = totalQty; countEl.style.display = totalQty ? '' : 'none'; }
+    if (!itemsWrap) return;
+    if (!proCart.length) {
+      itemsWrap.innerHTML = '<div class="cart-empty-msg"><div class="cart-empty-icon">🧴</div><p>Your cart is empty.</p></div>';
+      if (subtotalEl) subtotalEl.textContent = 'TTD 0.00';
+      return;
+    }
+    itemsWrap.innerHTML = proCart.map((item, i) => `
+      <div class="cart-item">
+        <div class="cart-item-info">
+          <div class="cart-item-name">${safe(item.name)}</div>
+          <div class="cart-item-price">TTD ${(item.price * item.qty).toFixed(2)}</div>
+          <div class="cart-item-qty">
+            <button type="button" class="qty-btn" data-qty-change="${i}" data-d="-1">−</button>
+            <span class="qty-num">${item.qty}</span>
+            <button type="button" class="qty-btn" data-qty-change="${i}" data-d="1">+</button>
+          </div>
+        </div>
+        <button type="button" class="cart-remove" data-remove="${i}">✕</button>
+      </div>`).join('');
+    if (subtotalEl) subtotalEl.textContent = `TTD ${proCartSubtotal().toFixed(2)}`;
+  }
+
+  grid.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-add-pro-cart');
+    if (!btn) return;
+    const p = PRO_PRODUCTS.find(x => x.id == btn.dataset.id);
+    if (!p) return;
+    const ex = proCart.find(i => i.name === p.name);
+    if (ex) ex.qty++; else proCart.push({ name: p.name, price: p.price, qty: 1 });
+    saveProCart(); renderProCart(); openProCart();
+  });
+
+  document.getElementById('proCartItems')?.addEventListener('click', e => {
+    const qtyBtn = e.target.closest('[data-qty-change]');
+    const rmBtn  = e.target.closest('[data-remove]');
+    if (qtyBtn) {
+      const i = parseInt(qtyBtn.dataset.qtyChange, 10);
+      const d = parseInt(qtyBtn.dataset.d, 10);
+      proCart[i].qty = Math.max(1, proCart[i].qty + d);
+      saveProCart(); renderProCart(); updateCheckoutTotals();
+    }
+    if (rmBtn) {
+      proCart.splice(parseInt(rmBtn.dataset.remove, 10), 1);
+      saveProCart(); renderProCart(); updateCheckoutTotals();
+    }
+  });
+
+  function openProCart() {
+    document.getElementById('proCartSidebar')?.classList.add('open');
+    document.getElementById('proCartOverlay')?.classList.add('open');
+    lockScroll();
+  }
+  function closeProCart() {
+    document.getElementById('proCartSidebar')?.classList.remove('open');
+    document.getElementById('proCartOverlay')?.classList.remove('open');
+    unlockScroll();
+  }
+  document.getElementById('openProCartBtn')?.addEventListener('click', openProCart);
+  document.getElementById('proCartCloseBtn')?.addEventListener('click', closeProCart);
+  document.getElementById('proCartOverlay')?.addEventListener('click', closeProCart);
+
+  /* ── Checkout modal ── */
+  const checkoutModal = document.getElementById('proCheckoutModal');
+  const checkoutForm  = document.getElementById('proCheckoutForm');
+  const islandSelect  = document.getElementById('pcIsland');
+  const addressWrap   = document.getElementById('pcAddressWrap');
+  const islandWrap    = document.getElementById('pcIslandWrap');
+
+  function currentShipping() {
+    const delivery = document.querySelector('input[name="pcDelivery"]:checked')?.value;
+    if (delivery !== 'delivery') return 0;
+    return islandSelect?.value === 'tobago' ? 70 : 50;
+  }
+
+  function updateCheckoutTotals() {
+    const subtotal = proCartSubtotal();
+    const shipping = currentShipping();
+    const total = subtotal + shipping;
+    const subEl  = document.getElementById('pcSubtotal');
+    const shipEl = document.getElementById('pcShipping');
+    const totEl  = document.getElementById('pcTotal');
+    if (subEl)  subEl.textContent  = `TTD ${subtotal.toFixed(2)}`;
+    if (shipEl) shipEl.textContent = `TTD ${shipping.toFixed(2)}`;
+    if (totEl)  totEl.textContent  = `TTD ${total.toFixed(2)}`;
+  }
+
+  function toggleDeliveryFields() {
+    const delivery = document.querySelector('input[name="pcDelivery"]:checked')?.value;
+    const isDelivery = delivery === 'delivery';
+    if (islandWrap)  islandWrap.style.display  = isDelivery ? '' : 'none';
+    if (addressWrap) addressWrap.style.display = isDelivery ? '' : 'none';
+    const addrInput = document.getElementById('pcAddress');
+    if (addrInput) addrInput.required = isDelivery;
+    updateCheckoutTotals();
+  }
+
+  document.getElementById('openProCheckoutBtn')?.addEventListener('click', () => {
+    if (!proCart.length) { alert('Your cart is empty!'); return; }
+    toggleDeliveryFields();
+    checkoutModal?.classList.add('open');
+  });
+  document.getElementById('proCheckoutModalClose')?.addEventListener('click', () => {
+    checkoutModal?.classList.remove('open');
+  });
+  document.querySelectorAll('input[name="pcDelivery"]').forEach(r => r.addEventListener('change', toggleDeliveryFields));
+  islandSelect?.addEventListener('change', updateCheckoutTotals);
+
+  checkoutForm?.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!proCart.length) return;
+    const submitBtn = e.target.querySelector('[type="submit"]');
+    const fd = new FormData(e.target);
+
+    const pcName   = (fd.get('pcName')   || '').trim();
+    const pcPhone  = (fd.get('pcPhone')  || '').trim();
+    const pcEmail  = (fd.get('pcEmail')  || '').trim();
+    const deliveryMethod = fd.get('pcDelivery') || 'pickup';
+    const island   = fd.get('pcIsland') || 'trinidad';
+    const pcAddress = (fd.get('pcAddress') || '').trim();
+
+    if (!pcName)  { alert('Please enter your name.'); return; }
+    if (!pcPhone) { alert('Please enter your phone number.'); return; }
+    if (!/^[0-9+\-()\s]{7,30}$/.test(pcPhone)) { alert('Please enter a valid phone number (digits, spaces, dashes, parentheses and + are allowed).'); return; }
+    if (!pcEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pcEmail)) { alert('Please enter a valid email address — your invoice will be sent there.'); return; }
+    if (deliveryMethod === 'delivery' && !pcAddress) { alert('Please enter a shipping address.'); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    const subtotal = proCartSubtotal();
+    const shipping = currentShipping();
+    const total = subtotal + shipping;
+
+    try {
+      const invoiceId = await nextProInvoiceId();
+      const order = {
+        id: Date.now(),
+        invoiceId,
+        name: pcName, email: pcEmail, phone: pcPhone,
+        deliveryMethod,
+        island:  deliveryMethod === 'delivery' ? island : null,
+        address: deliveryMethod === 'delivery' ? pcAddress : null,
+        items: proCart.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
+        subtotal, shipping, total,
+        status: 'pending',
+        created: new Date().toISOString(),
+      };
+      await saveProOrderRecord(order);
+      try { await sendProBusinessEmail(order); } catch (err) { console.error('Pro order business email failed:', err); }
+      try { await sendProClientEmail(order); }   catch (err) { console.error('Pro order client email failed:', err); }
+
+      proCart = []; saveProCart(); renderProCart();
+      checkoutModal?.classList.remove('open');
+      closeProCart();
+      const toast = document.getElementById('proOrderSuccess');
+      if (toast) { toast.style.display = 'block'; setTimeout(() => toast.style.display = 'none', 7000); }
+    } catch (err) {
+      console.error('Pro order failed:', err);
+      alert('Something went wrong sending your order. Please try again or contact us directly.');
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Send Order ✉️';
+    e.target.reset();
+  });
+
+  renderProCart();
+}
+initProShop();
+
 /* ── Contact Form ── */
 const contactForm = document.getElementById('contactForm');
 if (contactForm) {
@@ -1726,6 +2061,7 @@ function initAdmin() {
     else if (name === 'analytics') renderAnalytics();
     else if (name === 'specials') renderSpecials();
     else if (name === 'course-enrollments') renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
+    else if (name === 'pro-orders') renderProOrders(document.getElementById('poSearch')?.value.toLowerCase() || '');
 
     // Scroll mobile bottom nav to keep active tab visible
     const activeTab = document.querySelector(`.admin-bottom-btn[data-panel="${name}"]`);
@@ -2290,6 +2626,107 @@ function fmtDate(ds) {
   if (!ds) return '—';
   return new Date(ds + 'T00:00').toLocaleDateString('en-TT', { day:'numeric', month:'short', year:'numeric' });
 }
+
+/* ── Professional Orders (admin) ── */
+const _poStatusColor = { pending: '#F59E0B', confirmed: '#10B981', fulfilled: '#6366F1', cancelled: '#EF4444' };
+
+function renderProOrders(search = '') {
+  const tbody = document.getElementById('poBody');
+  if (!tbody) return;
+  const countEl = document.getElementById('poCount');
+  const all = getProOrders().slice().sort((a, b) => new Date(b.created) - new Date(a.created));
+  const q = search.toLowerCase();
+  const filtered = q ? all.filter(o =>
+    (o.name || '').toLowerCase().includes(q) ||
+    (o.email || '').toLowerCase().includes(q) ||
+    (o.phone || '').toLowerCase().includes(q) ||
+    (o.invoiceId || '').toLowerCase().includes(q)
+  ) : all;
+
+  const revenue = all
+    .filter(o => o.status === 'confirmed' || o.status === 'fulfilled')
+    .reduce((sum, o) => sum + (o.total || 0), 0);
+
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('poTotal', all.length);
+  setEl('poPending', all.filter(o => o.status === 'pending').length);
+  setEl('poConfirmed', all.filter(o => o.status === 'confirmed').length);
+  setEl('poFulfilled', all.filter(o => o.status === 'fulfilled').length);
+  setEl('poRevenue', `TTD ${revenue.toLocaleString('en-TT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`);
+  if (countEl) countEl.textContent = `${filtered.length} order${filtered.length !== 1 ? 's' : ''}`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:#9CA3AF;">${q ? 'No results found.' : 'No professional orders yet. They will appear here when a Professionals Only order is placed.'}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(o => {
+    const date = o.created ? new Date(o.created).toLocaleDateString('en-TT', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    const itemsSummary = (o.items || []).map(i => `${i.name} ×${i.qty}`).join(', ');
+    const deliveryLabel = o.deliveryMethod === 'delivery'
+      ? `Delivery — ${o.island === 'tobago' ? 'Tobago' : 'Trinidad'}`
+      : 'Pickup at salon';
+    return `<tr>
+      <td style="font-size:0.82rem;font-weight:700;color:var(--pink-dark);">${safe(o.invoiceId)}</td>
+      <td><strong>${safe(o.name)}</strong><br><span style="font-size:0.78rem;color:#9CA3AF;">${safe(o.phone)} · ${safe(o.email || '—')}</span></td>
+      <td style="font-size:0.8rem;max-width:220px;color:var(--text-light);">${safe(itemsSummary)}</td>
+      <td style="font-size:0.84rem;font-weight:700;color:#065F46;">TTD ${(o.total || 0).toLocaleString('en-TT', { minimumFractionDigits: 2 })}</td>
+      <td style="font-size:0.8rem;color:var(--text-light);">${safe(deliveryLabel)}${o.address ? `<br><span style="font-size:0.75rem;">${safe(o.address)}</span>` : ''}</td>
+      <td style="font-size:0.82rem;color:var(--text-light);">${date}</td>
+      <td>
+        <select class="po-status-sel" data-id="${o.id}" style="font-size:0.8rem;padding:4px 8px;border:1px solid var(--border);border-radius:6px;color:${_poStatusColor[o.status]||'#374151'};font-weight:600;background:#fff;">
+          <option value="pending" ${o.status==='pending'?'selected':''}>Pending</option>
+          <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Confirmed</option>
+          <option value="fulfilled" ${o.status==='fulfilled'?'selected':''}>Fulfilled</option>
+          <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
+        </select>
+      </td>
+      <td><button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteProOrder(${o.id})">Remove</button></td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.po-status-sel').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const list = getProOrders();
+      const idx = list.findIndex(o => o.id == sel.dataset.id);
+      if (idx === -1) return;
+      list[idx].status = sel.value;
+      saveProOrders(list);
+      renderProOrders(document.getElementById('poSearch')?.value.toLowerCase() || '');
+    });
+  });
+}
+
+window.deleteProOrder = id => {
+  if (!confirm('Remove this order record?')) return;
+  saveProOrders(getProOrders().filter(o => o.id != id));
+  renderProOrders(document.getElementById('poSearch')?.value.toLowerCase() || '');
+};
+
+(function initProOrdersMgr() {
+  const searchEl = document.getElementById('poSearch');
+  if (!searchEl) return;
+
+  searchEl.addEventListener('input', () => renderProOrders(searchEl.value.toLowerCase()));
+
+  document.getElementById('exportPoBtn')?.addEventListener('click', () => {
+    const all = getProOrders();
+    if (!all.length) { alert('No orders to export.'); return; }
+    const headers = ['Invoice ID', 'Name', 'Phone', 'Email', 'Items', 'Subtotal', 'Shipping', 'Total', 'Delivery Method', 'Island', 'Address', 'Status', 'Date'];
+    const rows = all.map(o => [
+      o.invoiceId, o.name, o.phone, o.email,
+      (o.items || []).map(i => `${i.name} x${i.qty}`).join('; '),
+      o.subtotal, o.shipping, o.total,
+      o.deliveryMethod, o.island || '', o.address || '',
+      o.status, o.created,
+    ].map(v => `"${String(v || '').replace(/"/g, '""')}"`));
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `lunas-professional-orders-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  });
+})();
 
 function renderDashboard() {
   const bookings = getDB('lunas_bookings');

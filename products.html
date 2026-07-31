@@ -13,173 +13,8 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
   <meta name="referrer" content="strict-origin-when-cross-origin"/>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%238B4F1C'/><text y='74' x='16' font-size='70' font-family='Georgia,serif' fill='%23C9A84C'>L</text></svg>"/>
-  <link rel="stylesheet" href="styles.css?v=14"/>
-  <style>
-    .cs-wrap {
-      min-height: calc(100vh - 72px);
-      background: var(--dark);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 5rem 1.5rem;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* decorative large letter */
-    .cs-wrap::before {
-      content: 'L';
-      position: absolute;
-      font-family: Georgia, serif;
-      font-size: 60vw;
-      font-weight: 700;
-      color: rgba(201,168,76,0.04);
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      user-select: none;
-      line-height: 1;
-    }
-
-    .cs-inner {
-      position: relative;
-      z-index: 1;
-      text-align: center;
-      max-width: 620px;
-    }
-
-    .cs-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.6rem;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 2rem;
-    }
-    .cs-eyebrow::before,
-    .cs-eyebrow::after {
-      content: '';
-      display: block;
-      width: 36px;
-      height: 1px;
-      background: var(--gold);
-      opacity: 0.6;
-    }
-
-    .cs-title {
-      font-family: Georgia, 'Times New Roman', serif;
-      font-size: clamp(2.6rem, 7vw, 4.4rem);
-      font-weight: 400;
-      color: #fff;
-      line-height: 1.1;
-      margin-bottom: 1.5rem;
-      letter-spacing: -0.01em;
-    }
-    .cs-title span {
-      color: var(--gold);
-      font-style: italic;
-    }
-
-    .cs-divider {
-      width: 60px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-      margin: 0 auto 1.8rem;
-    }
-
-    .cs-desc {
-      font-size: 1.05rem;
-      color: rgba(255,255,255,0.6);
-      line-height: 1.75;
-      margin-bottom: 2.8rem;
-    }
-
-    .cs-dots {
-      display: flex;
-      justify-content: center;
-      gap: 1.8rem;
-      margin-bottom: 3rem;
-    }
-    .cs-dot-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .cs-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--gold);
-      opacity: 0.35;
-      animation: csPulse 2.4s ease-in-out infinite;
-    }
-    .cs-dot-item:nth-child(2) .cs-dot { animation-delay: 0.4s; opacity: 0.6; transform: scale(1.3); }
-    .cs-dot-item:nth-child(3) .cs-dot { animation-delay: 0.8s; }
-    .cs-dot-label {
-      font-size: 0.65rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.35);
-      font-weight: 600;
-    }
-    @keyframes csPulse {
-      0%, 100% { opacity: 0.25; transform: scale(1); }
-      50%       { opacity: 0.8;  transform: scale(1.4); }
-    }
-
-    .cs-actions {
-      display: flex;
-      gap: 1rem;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .cs-btn-gold {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.85rem 2rem;
-      background: var(--gold);
-      color: #1E0E00;
-      font-size: 0.85rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      border-radius: 2px;
-      text-decoration: none;
-      transition: background 0.25s, transform 0.2s;
-    }
-    .cs-btn-gold:hover { background: #d4b05a; transform: translateY(-2px); }
-
-    .cs-btn-ghost {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.85rem 2rem;
-      border: 1px solid rgba(201,168,76,0.45);
-      color: rgba(255,255,255,0.75);
-      font-size: 0.85rem;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      border-radius: 2px;
-      text-decoration: none;
-      transition: border-color 0.25s, color 0.25s, transform 0.2s;
-    }
-    .cs-btn-ghost:hover { border-color: var(--gold); color: var(--gold); transform: translateY(-2px); }
-
-    .cs-note {
-      margin-top: 3rem;
-      font-size: 0.78rem;
-      color: rgba(255,255,255,0.25);
-      letter-spacing: 0.06em;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css?v=15"/>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -200,42 +35,98 @@
   </div>
 </nav>
 
-<div class="cs-wrap">
-  <div class="cs-inner">
-
-    <div class="cs-eyebrow">Luna's Shop</div>
-
-    <h1 class="cs-title">Something <span>Beautiful</span><br>is Coming <span>Soon</span></h1>
-
-    <div class="cs-divider"></div>
-
-    <p class="cs-desc">
-      Chel-C is curating a selection of professional-grade skincare,
-      waxing essentials, and beauty products — personally tested and
-      expert approved. The shop will be ready soon.
-    </p>
-
-    <div class="cs-dots">
-      <div class="cs-dot-item"><div class="cs-dot"></div><span class="cs-dot-label">Skincare</span></div>
-      <div class="cs-dot-item"><div class="cs-dot"></div><span class="cs-dot-label">Coming Soon</span></div>
-      <div class="cs-dot-item"><div class="cs-dot"></div><span class="cs-dot-label">Beauty Tools</span></div>
+<!-- ══════════════════ Professionals Only — Bushbalm Pro Wholesale ══════════════════ -->
+<section class="section pro-section">
+  <div class="container">
+    <div class="text-center" style="max-width:720px;margin:0 auto 3rem;">
+      <span class="section-label">For Licensed Professionals</span>
+      <h2>Bushbalm <span style="color:var(--gold);font-style:italic;">Professional</span> Aftercare</h2>
+      <div class="gold-divider"></div>
+      <p class="section-subtitle" style="margin-bottom:0;">
+        Wholesale Bushbalm after-care products for licensed estheticians, spas &amp; salons across Trinidad and Tobago.
+        By ordering, you confirm you are a licensed esthetician, spa, salon, or authorized retailer purchasing for professional resale.
+      </p>
     </div>
 
-    <div class="cs-actions">
-      <a href="https://www.instagram.com/Lunas.esthetics.tt" target="_blank" class="cs-btn-gold">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-        Follow for Updates
-      </a>
-      <a href="contact.html" class="cs-btn-ghost">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-        Get in Touch
-      </a>
+    <div class="shop-topbar" style="justify-content:flex-end;">
+      <button class="cart-btn" id="openProCartBtn">Cart <span class="cart-count" id="proCartCount" style="display:none;">0</span></button>
     </div>
 
-    <p class="cs-note">In the meantime, explore our services or book an appointment.</p>
+    <div class="product-grid" id="proProductGrid"></div>
+  </div>
+</section>
 
+<!-- Pro Cart -->
+<div class="cart-overlay" id="proCartOverlay"></div>
+<div class="cart-sidebar" id="proCartSidebar">
+  <div class="cart-head">
+    <h3>Professional Order</h3>
+    <button class="cart-close-btn" id="proCartCloseBtn">✕</button>
+  </div>
+  <div class="cart-items" id="proCartItems"></div>
+  <div class="cart-foot">
+    <div class="cart-total-line">
+      <span>Subtotal</span>
+      <span id="proCartSubtotal">TTD 0.00</span>
+    </div>
+    <button class="btn btn-primary" id="openProCheckoutBtn" style="width:100%;">Checkout</button>
+    <p style="font-size:0.78rem;color:var(--text-light);text-align:center;margin-top:0.5rem;">Shipping is calculated at checkout.</p>
   </div>
 </div>
+
+<!-- Pro Checkout Modal -->
+<div class="modal-backdrop" id="proCheckoutModal">
+  <div class="modal-box" style="max-width:520px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3>Complete Your Professional Order</h3>
+      <button type="button" onclick="document.getElementById('proCheckoutModal').classList.remove('open')" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-light);">✕</button>
+    </div>
+    <form id="proCheckoutForm">
+      <div class="mfg"><label>Full Name *</label><input type="text" name="pcName" placeholder="Jane Smith" required maxlength="100" autocomplete="name"/></div>
+      <div class="mfg"><label>Email Address *</label><input type="email" name="pcEmail" placeholder="your@email.com" required maxlength="100" autocomplete="email"/></div>
+      <div class="mfg"><label>Phone Number *</label><input type="tel" name="pcPhone" placeholder="1(868) 000-0000" required maxlength="30" pattern="[0-9+\-()\s]+" title="Phone number — digits, spaces, dashes, parentheses, and + are allowed"/></div>
+
+      <div class="mfg">
+        <label>Delivery or Pickup *</label>
+        <div style="display:flex;gap:1.5rem;margin-top:0.3rem;">
+          <label style="display:flex;align-items:center;gap:0.4rem;font-weight:400;text-transform:none;letter-spacing:normal;font-size:0.9rem;color:var(--text);">
+            <input type="radio" name="pcDelivery" value="pickup" checked/> Pickup at the salon
+          </label>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-weight:400;text-transform:none;letter-spacing:normal;font-size:0.9rem;color:var(--text);">
+            <input type="radio" name="pcDelivery" value="delivery"/> Delivery
+          </label>
+        </div>
+      </div>
+
+      <div class="mfg" id="pcIslandWrap" style="display:none;">
+        <label>Island *</label>
+        <select name="pcIsland" id="pcIsland">
+          <option value="trinidad">Trinidad (TTD 50 shipping)</option>
+          <option value="tobago">Tobago (TTD 70 shipping)</option>
+        </select>
+      </div>
+
+      <div class="mfg" id="pcAddressWrap" style="display:none;">
+        <label>Shipping Address *</label>
+        <textarea name="pcAddress" id="pcAddress" placeholder="Street address, city/town"></textarea>
+      </div>
+
+      <div style="background:var(--pink-bg);border-radius:var(--radius-sm);padding:1rem 1.2rem;margin:1.2rem 0;">
+        <div style="display:flex;justify-content:space-between;font-size:0.88rem;margin-bottom:0.4rem;"><span>Subtotal</span><span id="pcSubtotal">TTD 0.00</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.88rem;margin-bottom:0.4rem;"><span>Shipping</span><span id="pcShipping">TTD 0.00</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:1.05rem;padding-top:0.5rem;border-top:1px solid var(--border);"><span>Total</span><span id="pcTotal">TTD 0.00</span></div>
+      </div>
+
+      <p style="font-size:0.8rem;color:var(--text-light);margin-bottom:1rem;">An invoice will be emailed to you, and we'll be in touch to confirm payment.</p>
+
+      <div class="modal-foot">
+        <button type="button" class="btn-admin btn-admin-ghost" onclick="document.getElementById('proCheckoutModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn-admin btn-admin-pink">Send Order ✉️</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div id="proOrderSuccess" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#15803D;color:white;padding:1rem 2rem;border-radius:2px;font-weight:700;z-index:2000;">Order sent! Check your email for your invoice — we'll be in touch to confirm.</div>
 
 <footer class="footer">
   <div class="container">
@@ -250,13 +141,13 @@
       </div>
       <div class="footer-col"><h4>Navigate</h4><ul><li><a href="index.html">Home</a></li><li><a href="services.html">Services</a></li><li><a href="products.html">Shop</a></li><li><a href="contact.html">Contact</a></li></ul></div>
       <div class="footer-col"><h4>Categories</h4><ul><li><a href="#">Skincare</a></li><li><a href="#">Waxing Supplies</a></li><li><a href="#">Body Care</a></li><li><a href="#">Beauty Tools</a></li></ul></div>
-      <div class="footer-col"><h4>Contact</h4><div class="footer-contact-line">Lp#19 Xavier Street, Chaguanas</div><div class="footer-contact-line"><a href="tel:18684639306">1(868) 463-9306</a></div><div class=”footer-contact-line”>Tue–Sun: 10AM–5PM</div></div>
+      <div class="footer-col"><h4>Contact</h4><div class="footer-contact-line">Lp#19 Xavier Street, Chaguanas</div><div class="footer-contact-line"><a href="tel:18684639306">1(868) 463-9306</a></div><div class="footer-contact-line">Tue–Sun: 10AM–5PM</div></div>
     </div>
     <div class="footer-bottom"><span>© 2025 Luna's Esthetics.</span><div class="footer-bottom-links"><a href="book.html">Book Now</a><a href="contact.html">Contact</a></div></div>
   </div>
 </footer>
 
-<script src="script.js?v=19"></script>
+<script src="script.js?v=20"></script>
 
 <!--
   ╔â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•╗

@@ -8,7 +8,7 @@
   <meta name="referrer" content="no-referrer"/>
   <meta name="robots" content="noindex, nofollow"/>
   <title>Admin | Luna's Esthetics</title>
-  <link rel="stylesheet" href="styles.css?v=14"/>
+  <link rel="stylesheet" href="styles.css?v=15"/>
 </head>
 <body class="admin-page">
 
@@ -50,6 +50,7 @@
     <button class="admin-nav-btn" data-panel="calendar"><span class="admin-nav-icon">🗓️</span>Calendar</button>
     <button class="admin-nav-btn" data-panel="analytics"><span class="admin-nav-icon">📈</span>Analytics</button>
     <button class="admin-nav-btn" data-panel="course-enrollments"><span class="admin-nav-icon">🎓</span>Enrolments</button>
+    <button class="admin-nav-btn" data-panel="pro-orders"><span class="admin-nav-icon">🧴</span>Pro Orders</button>
     <button class="admin-nav-btn" data-panel="specials"><span class="admin-nav-icon">🏷️</span>Specials</button>
     <button class="admin-nav-btn" data-panel="services-mgr"><span class="admin-nav-icon">💆</span>Services</button>
     <button class="admin-nav-btn" data-panel="courses-mgr"><span class="admin-nav-icon">🎓</span>Courses</button>
@@ -434,6 +435,70 @@
             </thead>
             <tbody id="ceBody">
               <tr><td colspan="9" style="text-align:center;padding:2rem;color:#9CA3AF;">No course enrolments yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Professional Orders Panel ── -->
+    <div class="admin-panel" id="panel-pro-orders">
+      <h2 class="admin-panel-title">🧴 Professional Orders</h2>
+
+      <div class="stats-row" style="margin-bottom:1.5rem;">
+        <div class="stat-card stat-card-highlight">
+          <div class="stat-emoji">💰</div>
+          <div class="stat-value" id="poRevenue">TTD 0</div>
+          <div class="stat-name">Confirmed/Fulfilled Revenue</div>
+        </div>
+        <div class="stat-card stat-card-highlight">
+          <div class="stat-emoji">📦</div>
+          <div class="stat-value" id="poTotal">0</div>
+          <div class="stat-name">Total Orders</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">⏳</div>
+          <div class="stat-value" id="poPending">0</div>
+          <div class="stat-name">Pending</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">✅</div>
+          <div class="stat-value" id="poConfirmed">0</div>
+          <div class="stat-name">Confirmed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">🚚</div>
+          <div class="stat-value" id="poFulfilled">0</div>
+          <div class="stat-name">Fulfilled</div>
+        </div>
+      </div>
+
+      <div class="admin-toolbar" style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+        <input type="text" class="admin-search-input" id="poSearch" placeholder="Search by name, email, phone, or invoice…" style="flex:1;min-width:180px;"/>
+        <button class="btn-admin btn-admin-ghost" id="exportPoBtn">⬇️ Export CSV</button>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card-head">
+          <h3>All Professional Orders</h3>
+          <span id="poCount" style="font-size:0.82rem;color:#9CA3AF;"></span>
+        </div>
+        <div class="admin-card-body">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Client</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Delivery</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="poBody">
+              <tr><td colspan="8" style="text-align:center;padding:2rem;color:#9CA3AF;">No professional orders yet.</td></tr>
             </tbody>
           </table>
         </div>
@@ -1038,6 +1103,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script src="script.js?v=19"></script>
+<script src="script.js?v=20"></script>
 </body>
 </html>

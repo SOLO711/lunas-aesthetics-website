@@ -1482,6 +1482,20 @@ p { margin-bottom: 1rem; }
 .cart-empty-msg { text-align: center; padding: 3rem 1rem; color: var(--text-light); font-size: 0.95rem; }
 .cart-empty-icon { font-size: 3rem; margin-bottom: 0.75rem; }
 
+/* ── Professionals Only (Bushbalm Pro wholesale) ── */
+.pro-product-card { background: white; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); transition: var(--transition); display: flex; flex-direction: column; }
+.pro-product-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+.pro-product-img { height: 220px; overflow: hidden; background: var(--pink-light); }
+.pro-product-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pro-product-img-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+.pro-product-body { padding: 1.3rem; flex: 1; }
+.pro-product-body h3 { font-size: 1rem; margin-bottom: 0.4rem; line-height: 1.35; }
+.pro-product-body p { color: var(--text-light); font-size: 0.84rem; margin: 0; line-height: 1.55; }
+.pro-product-footer { padding: 1rem 1.3rem; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.pro-product-price { font-family: var(--font-heading); font-size: 1.2rem; color: var(--pink-dark); font-weight: 700; white-space: nowrap; }
+.btn-add-pro-cart { padding: 9px 16px; border-radius: 2px; background: var(--pink-dark); color: white; border: none; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: var(--transition); letter-spacing: 0.05em; font-family: var(--font-body); white-space: nowrap; }
+.btn-add-pro-cart:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(139,79,28,0.35); }
+
 /* ── Courses Page ── */
 .course-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 2rem; }
 
