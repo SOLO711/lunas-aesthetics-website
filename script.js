@@ -1345,26 +1345,26 @@ function initBooking() {
     const _fsSaved = await saveBookingRecord(booking);
 
     // Auto-save client record
-    const clients = getDB('lunas_clients');
-    const existingIdx = clients.findIndex(c => c.phone === booking.phone);
-    if (existingIdx >= 0) {
-      clients[existingIdx].lastVisit = booking.date;
-      clients[existingIdx].totalVisits = (clients[existingIdx].totalVisits || 0) + 1;
-      if (!clients[existingIdx].email && booking.email) clients[existingIdx].email = booking.email;
-    } else {
-      clients.push({
-        id: Date.now() + 1,
-        name: booking.name,
-        phone: booking.phone,
-        email: booking.email || '',
-        dob: '',
-        notes: '',
-        lastVisit: booking.date,
-        totalVisits: 1,
-        created: new Date().toISOString(),
-      });
-    }
-    setDB('lunas_clients', clients);
+    _mutateClients(clients => {
+      const existingIdx = clients.findIndex(c => c.phone === booking.phone);
+      if (existingIdx >= 0) {
+        clients[existingIdx].lastVisit = booking.date;
+        clients[existingIdx].totalVisits = (clients[existingIdx].totalVisits || 0) + 1;
+        if (!clients[existingIdx].email && booking.email) clients[existingIdx].email = booking.email;
+      } else {
+        clients.push({
+          id: Date.now() + 1,
+          name: booking.name,
+          phone: booking.phone,
+          email: booking.email || '',
+          dob: '',
+          notes: '',
+          lastVisit: booking.date,
+          totalVisits: 1,
+          created: new Date().toISOString(),
+        });
+      }
+    });
 
     const formattedDate = new Date(dateStr + 'T00:00').toLocaleDateString('en-TT', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -2211,32 +2211,37 @@ function _mutateBlockedDates(mutatorFn, btn) {
   return _blockedDatesQueue;
 }
 
-// Same lost-update guard as _mutateBlockedDates above, applied to bookings:
-// fetches the freshest bookings list from Firestore right before mutating
-// (instead of the page-load-time localStorage snapshot), so a client booking
-// online can't be silently erased by an admin action (or another client
-// booking) that read stale data. All calls are serialized through a single
-// queue. Returns true/false so callers can surface a failure instead of
-// rendering as if the save succeeded.
-let _bookingsQueue = Promise.resolve();
-function _mutateBookings(mutatorFn, btn) {
+// Same lost-update guard as _mutateBlockedDates above, generalized to any
+// setDB-backed store (bookings, clients, inventory): fetches the freshest
+// list from Firestore right before mutating (instead of the page-load-time
+// localStorage snapshot), so a write from one browser tab/session can't
+// silently erase a write made elsewhere in the meantime. Calls against the
+// same store are serialized through a per-store queue. Returns true/false
+// so callers can surface a failure instead of rendering as if it saved.
+const _storeQueues = {};
+function _mutateStore(fsKey, mutatorFn, btn) {
+  const localKey = 'lunas_' + fsKey;
   const run = async () => {
     if (btn) btn.disabled = true;
     try {
-      const fresh = await _fsGet('bookings');
-      const bookings = fresh || getDB('lunas_bookings');
-      if (mutatorFn(bookings) === false) return true;
-      const ok = await _fsSet('bookings', bookings);
-      if (ok) localStorage.setItem('lunas_bookings', JSON.stringify(bookings));
+      const fresh = await _fsGet(fsKey);
+      const list = fresh || getDB(localKey);
+      if (mutatorFn(list) === false) return true;
+      const ok = await _fsSet(fsKey, list);
+      if (ok) localStorage.setItem(localKey, JSON.stringify(list));
       return ok;
     } finally {
       if (btn) btn.disabled = false;
     }
   };
-  const result = _bookingsQueue.then(run, run);
-  _bookingsQueue = result.then(() => {}, () => {});
+  const queue = _storeQueues[fsKey] || Promise.resolve();
+  const result = queue.then(run, run);
+  _storeQueues[fsKey] = result.then(() => {}, () => {});
   return result;
 }
+function _mutateBookings(mutatorFn, btn) { return _mutateStore('bookings', mutatorFn, btn); }
+function _mutateClients(mutatorFn, btn) { return _mutateStore('clients', mutatorFn, btn); }
+function _mutateInventory(mutatorFn, btn) { return _mutateStore('inventory', mutatorFn, btn); }
 
 window.unblockMonth = m => {
   _mutateBlockedDates(bd => { bd.months = (bd.months || []).filter(x => x !== m); });
@@ -3045,11 +3050,10 @@ function openClientModal(client = null) {
 
 window.editClient = id => { const c = getDB('lunas_clients').find(x => x.id === id); if (c) openClientModal(c); };
 window.deleteClient = async id => {
-  const clients = getDB('lunas_clients');
-  const clientToDelete = clients.find(c => c.id === id);
+  const clientToDelete = getDB('lunas_clients').find(c => c.id === id);
   if (!clientToDelete) return;
   if (!confirm(`Delete ${clientToDelete.name}?\n\nTheir personal details (name, phone, email) will be anonymised in all existing bookings. Booking history and dates are kept for reporting purposes.`)) return;
-  const ok = await _mutateBookings(bookings => {
+  const bookingsOk = await _mutateBookings(bookings => {
     let changed = false;
     bookings.forEach(b => {
       if (b.phone === clientToDelete.phone || (clientToDelete.email && b.email === clientToDelete.email)) {
@@ -3059,32 +3063,42 @@ window.deleteClient = async id => {
     });
     if (!changed) return false;
   });
+  if (!bookingsOk) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
+  const clientsOk = await _mutateClients(clients => {
+    const idx = clients.findIndex(c => c.id === id);
+    if (idx === -1) return false;
+    clients.splice(idx, 1);
+  });
+  if (!clientsOk) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
+  renderClientsTable(); renderDashboard();
+};
+
+window.toggleBlockClient = async id => {
+  const staleClient = getDB('lunas_clients').find(x => x.id === id);
+  if (!staleClient) return;
+  const action = staleClient.blocked ? 'unblock' : 'block';
+  if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${staleClient.name}? ${staleClient.blocked ? 'They will be able to book again.' : 'They will not be able to complete bookings.'}`)) return;
+  const ok = await _mutateClients(clients => {
+    const c = clients.find(x => x.id === id);
+    if (!c) return false;
+    c.blocked = !c.blocked;
+  });
   if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
-  setDB('lunas_clients', clients.filter(c => c.id !== id));
   renderClientsTable(); renderDashboard();
 };
 
-window.toggleBlockClient = id => {
-  const clients = getDB('lunas_clients');
-  const c = clients.find(x => x.id === id);
-  if (!c) return;
-  const action = c.blocked ? 'unblock' : 'block';
-  if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${c.name}? ${c.blocked ? 'They will be able to book again.' : 'They will not be able to complete bookings.'}`)) return;
-  c.blocked = !c.blocked;
-  setDB('lunas_clients', clients);
-  renderClientsTable(); renderDashboard();
-};
-
-document.getElementById('clientForm')?.addEventListener('submit', e => {
+document.getElementById('clientForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(e.target);
   const id = fd.get('clientId') ? parseInt(fd.get('clientId')) : Date.now();
-  const clients = getDB('lunas_clients');
-  const existing = clients.findIndex(c => c.id === id);
-  const prev = existing >= 0 ? clients[existing] : null;
-  const client = { id, name: fd.get('cName'), phone: fd.get('cPhone'), email: fd.get('cEmail'), dob: fd.get('cDob'), notes: fd.get('cNotes'), lastVisit: prev?.lastVisit || '', totalVisits: prev?.totalVisits || 0, blocked: prev?.blocked || false, created: prev?.created || new Date().toISOString() };
-  if (existing >= 0) clients[existing] = client; else clients.push(client);
-  setDB('lunas_clients', clients);
+  const name = fd.get('cName'), phone = fd.get('cPhone'), email = fd.get('cEmail'), dob = fd.get('cDob'), notes = fd.get('cNotes');
+  const ok = await _mutateClients(clients => {
+    const existing = clients.findIndex(c => c.id === id);
+    const prev = existing >= 0 ? clients[existing] : null;
+    const client = { id, name, phone, email, dob, notes, lastVisit: prev?.lastVisit || '', totalVisits: prev?.totalVisits || 0, blocked: prev?.blocked || false, created: prev?.created || new Date().toISOString() };
+    if (existing >= 0) clients[existing] = client; else clients.push(client);
+  });
+  if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
   closeModal('clientModal');
   renderClientsTable(); renderDashboard();
 });
@@ -3136,21 +3150,28 @@ function openInventoryModal(item = null) {
 }
 
 window.editInventory = id => { const i = getDB('lunas_inventory').find(x => x.id === id); if (i) openInventoryModal(i); };
-window.deleteInventory = id => {
+window.deleteInventory = async id => {
   if (!confirm('Delete this item?')) return;
-  setDB('lunas_inventory', getDB('lunas_inventory').filter(i => i.id !== id));
+  const ok = await _mutateInventory(items => {
+    const idx = items.findIndex(i => i.id === id);
+    if (idx === -1) return false;
+    items.splice(idx, 1);
+  });
+  if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
   renderInventoryTable(); renderDashboard();
 };
 
-document.getElementById('inventoryForm')?.addEventListener('submit', e => {
+document.getElementById('inventoryForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const fd = new FormData(e.target);
   const id = fd.get('itemId') ? parseInt(fd.get('itemId')) : Date.now();
-  const items = getDB('lunas_inventory');
-  const ex = items.findIndex(i => i.id === id);
-  const item = { id, name: fd.get('iName'), category: fd.get('iCategory'), price: parseFloat(fd.get('iPrice')) || 0, qty: parseInt(fd.get('iQty')) || 0, minQty: parseInt(fd.get('iMinQty')) || 0, notes: fd.get('iNotes') };
-  if (ex >= 0) items[ex] = item; else items.push(item);
-  setDB('lunas_inventory', items);
+  const name = fd.get('iName'), category = fd.get('iCategory'), price = parseFloat(fd.get('iPrice')) || 0, qty = parseInt(fd.get('iQty')) || 0, minQty = parseInt(fd.get('iMinQty')) || 0, notes = fd.get('iNotes');
+  const ok = await _mutateInventory(items => {
+    const ex = items.findIndex(i => i.id === id);
+    const item = { id, name, category, price, qty, minQty, notes };
+    if (ex >= 0) items[ex] = item; else items.push(item);
+  });
+  if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
   closeModal('inventoryModal');
   renderInventoryTable(); renderDashboard();
 });
