@@ -681,10 +681,7 @@ async function getBookedSlots(dateStr) {
 }
 
 async function saveBookingRecord(booking) {
-  const all = getDB('lunas_bookings');
-  all.push(booking);
-  localStorage.setItem('lunas_bookings', JSON.stringify(all));
-  return await _fsSet('bookings', all);
+  return await _mutateBookings(all => { all.push(booking); });
 }
 
 function sendEmail(subject, fromName, fromPhone, fromEmail, body) {
@@ -2214,6 +2211,33 @@ function _mutateBlockedDates(mutatorFn, btn) {
   return _blockedDatesQueue;
 }
 
+// Same lost-update guard as _mutateBlockedDates above, applied to bookings:
+// fetches the freshest bookings list from Firestore right before mutating
+// (instead of the page-load-time localStorage snapshot), so a client booking
+// online can't be silently erased by an admin action (or another client
+// booking) that read stale data. All calls are serialized through a single
+// queue. Returns true/false so callers can surface a failure instead of
+// rendering as if the save succeeded.
+let _bookingsQueue = Promise.resolve();
+function _mutateBookings(mutatorFn, btn) {
+  const run = async () => {
+    if (btn) btn.disabled = true;
+    try {
+      const fresh = await _fsGet('bookings');
+      const bookings = fresh || getDB('lunas_bookings');
+      if (mutatorFn(bookings) === false) return true;
+      const ok = await _fsSet('bookings', bookings);
+      if (ok) localStorage.setItem('lunas_bookings', JSON.stringify(bookings));
+      return ok;
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+  const result = _bookingsQueue.then(run, run);
+  _bookingsQueue = result.then(() => {}, () => {});
+  return result;
+}
+
 window.unblockMonth = m => {
   _mutateBlockedDates(bd => { bd.months = (bd.months || []).filter(x => x !== m); });
 };
@@ -2808,7 +2832,7 @@ function renderBookingsTable(query = '') {
     </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:#9CA3AF;padding:2rem">No bookings found</td></tr>';
 }
 
-window.updateBookingStatus = (id, status, selectEl) => {
+window.updateBookingStatus = async (id, status, selectEl) => {
   if (status === 'cancelled') {
     const modal = document.getElementById('cancelReasonModal');
     modal.classList.add('open');
@@ -2820,23 +2844,31 @@ window.updateBookingStatus = (id, status, selectEl) => {
     modal._selectEl = selectEl;
     return;
   }
-  const bookings = getDB('lunas_bookings');
-  const b = bookings.find(x => x.id === id);
-  if (b) {
+  let found = false;
+  const ok = await _mutateBookings(bookings => {
+    const b = bookings.find(x => x.id === id);
+    if (!b) return false;
+    found = true;
     b.status = status;
     if (status !== 'cancelled') delete b.cancelReason;
     b.modified = new Date().toISOString();
     b.modifiedBy = 'admin';
-    setDB('lunas_bookings', bookings);
-    renderBookingsTable();
-    renderDashboard();
-    renderCalendar();
-    if (selectEl) selectEl.dataset.prev = status;
-  }
+  });
+  if (!found) return;
+  if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
+  renderBookingsTable();
+  renderDashboard();
+  renderCalendar();
+  if (selectEl) selectEl.dataset.prev = status;
 };
-window.deleteBooking = id => {
+window.deleteBooking = async id => {
   if (!confirm('Delete this booking?')) return;
-  setDB('lunas_bookings', getDB('lunas_bookings').filter(b => b.id !== id));
+  const ok = await _mutateBookings(bookings => {
+    const idx = bookings.findIndex(b => b.id === id);
+    if (idx === -1) return false;
+    bookings.splice(idx, 1);
+  });
+  if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
   renderBookingsTable(); renderDashboard(); renderCalendar();
 };
 
@@ -2876,16 +2908,19 @@ document.getElementById('addBookingBtn')?.addEventListener('click', () => window
 document.getElementById('editBookingForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const id = Number(document.getElementById('ebId').value);
-  const bookings = getDB('lunas_bookings');
-  let b = bookings.find(x => x.id === id);
-  const isNew = !b;
 
   const name        = document.getElementById('ebName').value.trim();
   const phone       = document.getElementById('ebPhone').value.trim();
+  const email       = document.getElementById('ebEmail').value.trim();
+  const service     = document.getElementById('ebService').value.trim();
+  const price       = document.getElementById('ebPrice').value.trim();
   const date        = document.getElementById('ebDate').value;
   const timeRaw     = document.getElementById('ebTime').value;
   const time        = timeRaw ? _to12hr(timeRaw) : '';
   const esthetician = document.getElementById('ebEsthetician').value;
+  const notes       = document.getElementById('ebNotes').value.trim();
+
+  const isNew = !getDB('lunas_bookings').some(x => x.id === id);
 
   if (isNew) {
     if (!name)  { alert('Please enter a client name.'); return; }
@@ -2897,21 +2932,28 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async e =
     if (esthBooked.includes(time) && !confirm('This time overlaps an existing booking for this esthetician — add anyway?')) {
       return;
     }
-    b = { id, created: new Date().toISOString(), services: [], discountedPrice: null, promoApplied: null, status: 'confirmed' };
-    bookings.push(b);
   }
 
-  b.name        = name;
-  b.phone       = phone;
-  b.email       = document.getElementById('ebEmail').value.trim();
-  b.service     = document.getElementById('ebService').value.trim();
-  b.price       = document.getElementById('ebPrice').value.trim();
-  b.esthetician = esthetician;
-  b.date        = date;
-  b.time        = time;
-  b.notes       = document.getElementById('ebNotes').value.trim();
-  if (!isNew) { b.modified = new Date().toISOString(); b.modifiedBy = 'admin'; }
-  setDB('lunas_bookings', bookings);
+  const ok = await _mutateBookings(bookings => {
+    let b = bookings.find(x => x.id === id);
+    const wasNew = !b;
+    if (wasNew) {
+      b = { id, created: new Date().toISOString(), services: [], discountedPrice: null, promoApplied: null, status: 'confirmed' };
+      bookings.push(b);
+    }
+    b.name        = name;
+    b.phone       = phone;
+    b.email       = email;
+    b.service     = service;
+    b.price       = price;
+    b.esthetician = esthetician;
+    b.date        = date;
+    b.time        = time;
+    b.notes       = notes;
+    if (!wasNew) { b.modified = new Date().toISOString(); b.modifiedBy = 'admin'; }
+  });
+
+  if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
   document.getElementById('editBookingModal').classList.remove('open');
   renderBookingsTable(); renderDashboard(); renderCalendar();
 });
@@ -2922,15 +2964,21 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async e =
 });
 
 /* Cancel-reason modal handlers */
-document.getElementById('cancelReasonForm')?.addEventListener('submit', e => {
+document.getElementById('cancelReasonForm')?.addEventListener('submit', async e => {
   e.preventDefault();
   const modal = document.getElementById('cancelReasonModal');
   const reason = document.getElementById('cancelReasonInput').value.trim();
   if (!reason) { document.getElementById('cancelReasonInput').focus(); return; }
   const id = Number(modal.dataset.bookingId);
-  const bookings = getDB('lunas_bookings');
-  const b = bookings.find(x => x.id === id);
-  if (b) { b.status = 'cancelled'; b.cancelReason = reason; b.modified = new Date().toISOString(); b.modifiedBy = 'admin'; setDB('lunas_bookings', bookings); }
+  const ok = await _mutateBookings(bookings => {
+    const b = bookings.find(x => x.id === id);
+    if (!b) return false;
+    b.status = 'cancelled';
+    b.cancelReason = reason;
+    b.modified = new Date().toISOString();
+    b.modifiedBy = 'admin';
+  });
+  if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
   modal.classList.remove('open');
   renderBookingsTable();
   renderDashboard();
@@ -2996,20 +3044,22 @@ function openClientModal(client = null) {
 }
 
 window.editClient = id => { const c = getDB('lunas_clients').find(x => x.id === id); if (c) openClientModal(c); };
-window.deleteClient = id => {
+window.deleteClient = async id => {
   const clients = getDB('lunas_clients');
   const clientToDelete = clients.find(c => c.id === id);
   if (!clientToDelete) return;
   if (!confirm(`Delete ${clientToDelete.name}?\n\nTheir personal details (name, phone, email) will be anonymised in all existing bookings. Booking history and dates are kept for reporting purposes.`)) return;
-  const bookings = getDB('lunas_bookings');
-  let bookingsChanged = false;
-  bookings.forEach(b => {
-    if (b.phone === clientToDelete.phone || (clientToDelete.email && b.email === clientToDelete.email)) {
-      b.name = 'Deleted Client'; b.phone = ''; b.email = '';
-      bookingsChanged = true;
-    }
+  const ok = await _mutateBookings(bookings => {
+    let changed = false;
+    bookings.forEach(b => {
+      if (b.phone === clientToDelete.phone || (clientToDelete.email && b.email === clientToDelete.email)) {
+        b.name = 'Deleted Client'; b.phone = ''; b.email = '';
+        changed = true;
+      }
+    });
+    if (!changed) return false;
   });
-  if (bookingsChanged) setDB('lunas_bookings', bookings);
+  if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
   setDB('lunas_clients', clients.filter(c => c.id !== id));
   renderClientsTable(); renderDashboard();
 };
