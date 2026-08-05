@@ -1895,6 +1895,8 @@ body.admin-page .btn-admin-ghost:hover { background: var(--adm-accent-soft); bor
 .mfg input, .mfg select, .mfg textarea { width: 100%; padding: 10px 13px; border: 2px solid #E5E7EB; border-radius: 8px; font-size: 0.9rem; font-family: var(--font-body); outline: none; transition: var(--transition); background: white; color: var(--dark); }
 .mfg input:focus, .mfg select:focus, .mfg textarea:focus { border-color: var(--pink-dark); }
 .mfg textarea { resize: vertical; min-height: 80px; }
+.pc-delivery-group { display: flex; gap: 1.2rem; flex-wrap: wrap; margin-top: 0.3rem; }
+.mfg label.pc-delivery-option { display: flex; align-items: center; gap: 0.4rem; font-weight: 400; text-transform: none; letter-spacing: normal; font-size: 0.9rem; color: var(--text); white-space: nowrap; margin-bottom: 0; }
 .modal-foot { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #E5E7EB; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 body.admin-page .modal-box { border-radius: var(--adm-radius); border: 1px solid var(--adm-line); box-shadow: var(--adm-shadow-card); }
