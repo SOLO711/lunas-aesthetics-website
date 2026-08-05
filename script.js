@@ -2970,9 +2970,11 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async e =
     }
   }
 
+  let wasNewBooking = false;
   const ok = await _mutateBookings(bookings => {
     let b = bookings.find(x => x.id === id);
     const wasNew = !b;
+    wasNewBooking = wasNew;
     if (wasNew) {
       b = { id, created: new Date().toISOString(), services: [], discountedPrice: null, promoApplied: null, status: 'confirmed' };
       bookings.push(b);
@@ -2992,6 +2994,19 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async e =
   if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
   document.getElementById('editBookingModal').classList.remove('open');
   renderBookingsTable(); renderDashboard(); renderCalendar();
+
+  // Manually-added bookings (walk-ins/phone) never went through the public
+  // booking flow, so the client never got a confirmation email — send the
+  // same one a self-service booking would trigger. Only for genuinely new
+  // bookings, never on edits, and only if an email address was provided.
+  if (wasNewBooking && email) {
+    const formattedDate = new Date(date + 'T00:00').toLocaleDateString('en-TT', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+    });
+    try {
+      await sendClientEmail(name, email, service, price, formattedDate, time, false);
+    } catch (err) { console.error('Client confirmation email failed (admin-added booking):', err); }
+  }
 });
 
 ['editBookingClose','editBookingCancel'].forEach(id => {
