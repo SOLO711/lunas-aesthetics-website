@@ -1897,6 +1897,7 @@ body.admin-page .btn-admin-ghost:hover { background: var(--adm-accent-soft); bor
 .mfg textarea { resize: vertical; min-height: 80px; }
 .pc-delivery-group { display: flex; gap: 1.2rem; flex-wrap: wrap; margin-top: 0.3rem; }
 .mfg label.pc-delivery-option { display: flex; align-items: center; gap: 0.4rem; font-weight: 400; text-transform: none; letter-spacing: normal; font-size: 0.9rem; color: var(--text); white-space: nowrap; margin-bottom: 0; }
+.mfg .pc-delivery-option input[type="radio"] { width: auto; height: auto; flex: none; }
 .modal-foot { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #E5E7EB; }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
 body.admin-page .modal-box { border-radius: var(--adm-radius); border: 1px solid var(--adm-line); box-shadow: var(--adm-shadow-card); }
@@ -2076,6 +2077,12 @@ body.admin-page .modal-foot { border-top: 1px solid var(--adm-line); }
   .form-row-2 { grid-template-columns: 1fr; }
   .time-slots { grid-template-columns: repeat(2, 1fr); }
   .sp-colour-row { gap: 0.5rem; }
+
+  /* Delivery/Pickup radio group: always stack one-per-row on mobile so the
+     two options never have to share horizontal space — sidesteps any
+     font-scaling/browser-chrome-width edge case that could otherwise
+     squeeze them into overlap even with nowrap text. */
+  .pc-delivery-group { flex-direction: column; gap: 0.7rem; }
 }
 
 /* ── BackgroundPaths Hero (Courses Page) ── */
