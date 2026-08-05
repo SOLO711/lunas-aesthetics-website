@@ -981,6 +981,7 @@ function initBooking() {
               catSelect.value = '';
               svcSelect.innerHTML = '<option value="">Select a service first</option>';
               svcSelect.disabled = true;
+              updateEstheticianPicker();
               break;
             }
           } catch (_) {}
@@ -1001,11 +1002,40 @@ function initBooking() {
   let _bookingType = 'confirmed';
   let _selectedEsthetician = 'chel-c'; // 'chel-c' | 'timothy'
 
+  // A service is "facial-eligible" (bookable with Timothy) if it's a plain
+  // Advanced Facials service, or the Facial Package bundle inside The Lunas
+  // Collection — the only facial item in that otherwise-mixed category.
+  function _isFacialService(s) {
+    if (!s) return false;
+    if (s.category === 'Advanced Facials') return true;
+    if (s.category === 'The Lunas Collection' && s.name === 'Facial Package') return true;
+    return false;
+  }
+
   function updateEstheticianPicker() {
     const esthGroup = document.getElementById('estheticianGroup');
     if (!esthGroup) return;
-    const allFacials = selectedServices.length === 0 || selectedServices.every(s => s.category === 'Advanced Facials');
-    const show = catSelect?.value === 'Advanced Facials' && allFacials;
+    let show;
+    if (selectedServices.length > 0) {
+      // Already-added services decide it — independent of whatever the
+      // category/service dropdowns currently show (they get cleared right
+      // after "Add Service", which previously hid the picker and silently
+      // reset the choice back to Chel-C even for an already-added facial).
+      show = selectedServices.every(_isFacialService);
+    } else if (svcSelect?.value) {
+      // Nothing added yet, but a specific service is chosen — needed for
+      // The Lunas Collection, where the category alone doesn't tell us
+      // whether the chosen service is the Facial Package or not.
+      try {
+        const pending = JSON.parse(svcSelect.value);
+        pending.category = catSelect?.value;
+        show = _isFacialService(pending);
+      } catch (e) { show = false; }
+    } else {
+      // Nothing added, nothing chosen yet — Advanced Facials can show
+      // immediately since every service in that category is a facial.
+      show = catSelect?.value === 'Advanced Facials';
+    }
     esthGroup.style.display = show ? '' : 'none';
     if (!show) {
       _selectedEsthetician = 'chel-c';
@@ -1158,6 +1188,7 @@ function initBooking() {
 
   svcSelect?.addEventListener('change', () => {
     if (addServiceBtn) addServiceBtn.disabled = !svcSelect.value;
+    updateEstheticianPicker();
     updateSummary();
   });
 
