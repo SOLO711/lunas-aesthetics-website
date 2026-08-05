@@ -2565,13 +2565,13 @@ function renderCourseEnrollments(search = '') {
     const amtNum = parseTTD(e.amount);
     const amtDisplay = amtNum > 0 ? `<span style="font-weight:700;color:#065F46;">TTD ${amtNum.toLocaleString('en-TT')}</span>` : '<span style="color:#9CA3AF;">—</span>';
     return `<tr>
-      <td><strong>${safe(e.name)}</strong><br>${srcBadge}</td>
-      <td>${safe(e.phone)}</td>
-      <td style="font-size:0.83rem;">${safe(e.email || '—')}</td>
-      <td style="font-size:0.83rem;font-weight:600;color:var(--pink-dark);">${safe(e.course)}</td>
-      <td style="font-size:0.84rem;">${amtDisplay}</td>
-      <td style="font-size:0.82rem;color:var(--text-light);">${date}</td>
-      <td>
+      <td data-label="Student"><strong>${safe(e.name)}</strong><br>${srcBadge}</td>
+      <td data-label="Phone">${safe(e.phone)}</td>
+      <td data-label="Email" style="font-size:0.83rem;">${safe(e.email || '—')}</td>
+      <td data-label="Course" style="font-size:0.83rem;font-weight:600;color:var(--pink-dark);">${safe(e.course)}</td>
+      <td data-label="Course Fee" style="font-size:0.84rem;">${amtDisplay}</td>
+      <td data-label="Date" style="font-size:0.82rem;color:var(--text-light);">${date}</td>
+      <td data-label="Status">
         <select class="ce-status-sel" data-id="${e.id}" style="font-size:0.8rem;padding:4px 8px;border:1px solid var(--border);border-radius:6px;color:${_ceStatusColor[e.status]||'#374151'};font-weight:600;background:#fff;">
           <option value="pending" ${e.status==='pending'?'selected':''}>Pending</option>
           <option value="confirmed" ${e.status==='confirmed'?'selected':''}>Confirmed</option>
@@ -2579,8 +2579,8 @@ function renderCourseEnrollments(search = '') {
           <option value="cancelled" ${e.status==='cancelled'?'selected':''}>Cancelled</option>
         </select>
       </td>
-      <td style="font-size:0.8rem;max-width:140px;color:var(--text-light);">${safe(e.notes || '—')}</td>
-      <td><button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteCourseEnrolment('${e.id}')">Remove</button></td>
+      <td data-label="Notes" style="font-size:0.8rem;max-width:140px;color:var(--text-light);">${safe(e.notes || '—')}</td>
+      <td data-label="Actions"><button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteCourseEnrolment('${e.id}')">Remove</button></td>
     </tr>`;
   }).join('');
 
@@ -2701,13 +2701,13 @@ function renderProOrders(search = '') {
       ? `Delivery — ${o.island === 'tobago' ? 'Tobago' : 'Trinidad'}`
       : 'Pickup at salon';
     return `<tr>
-      <td style="font-size:0.82rem;font-weight:700;color:var(--pink-dark);">${safe(o.invoiceId)}</td>
-      <td><strong>${safe(o.name)}</strong><br><span style="font-size:0.78rem;color:#9CA3AF;">${safe(o.phone)} · ${safe(o.email || '—')}</span></td>
-      <td style="font-size:0.8rem;max-width:220px;color:var(--text-light);">${safe(itemsSummary)}</td>
-      <td style="font-size:0.84rem;font-weight:700;color:#065F46;">TTD ${(o.total || 0).toLocaleString('en-TT', { minimumFractionDigits: 2 })}</td>
-      <td style="font-size:0.8rem;color:var(--text-light);">${safe(deliveryLabel)}${o.address ? `<br><span style="font-size:0.75rem;">${safe(o.address)}</span>` : ''}</td>
-      <td style="font-size:0.82rem;color:var(--text-light);">${date}</td>
-      <td>
+      <td data-label="Invoice" style="font-size:0.82rem;font-weight:700;color:var(--pink-dark);">${safe(o.invoiceId)}</td>
+      <td data-label="Client"><strong>${safe(o.name)}</strong><br><span style="font-size:0.78rem;color:#9CA3AF;">${safe(o.phone)} · ${safe(o.email || '—')}</span></td>
+      <td data-label="Items" style="font-size:0.8rem;max-width:220px;color:var(--text-light);">${safe(itemsSummary)}</td>
+      <td data-label="Total" style="font-size:0.84rem;font-weight:700;color:#065F46;">TTD ${(o.total || 0).toLocaleString('en-TT', { minimumFractionDigits: 2 })}</td>
+      <td data-label="Delivery" style="font-size:0.8rem;color:var(--text-light);">${safe(deliveryLabel)}${o.address ? `<br><span style="font-size:0.75rem;">${safe(o.address)}</span>` : ''}</td>
+      <td data-label="Date" style="font-size:0.82rem;color:var(--text-light);">${date}</td>
+      <td data-label="Status">
         <select class="po-status-sel" data-id="${o.id}" style="font-size:0.8rem;padding:4px 8px;border:1px solid var(--border);border-radius:6px;color:${_poStatusColor[o.status]||'#374151'};font-weight:600;background:#fff;">
           <option value="pending" ${o.status==='pending'?'selected':''}>Pending</option>
           <option value="confirmed" ${o.status==='confirmed'?'selected':''}>Confirmed</option>
@@ -2715,7 +2715,7 @@ function renderProOrders(search = '') {
           <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
         </select>
       </td>
-      <td><button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteProOrder(${o.id})">Remove</button></td>
+      <td data-label="Actions"><button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteProOrder(${o.id})">Remove</button></td>
     </tr>`;
   }).join('');
 
@@ -2801,11 +2801,11 @@ function renderDashboard() {
   const recent = [...bookings].reverse().slice(0, 5);
   tbody.innerHTML = recent.length ? recent.map(b => `
     <tr>
-      <td>${safe(b.name)}</td>
-      <td>${safe(b.service)}</td>
-      <td>${fmtDate(b.date)}</td>
-      <td>${safe(b.time)}</td>
-      <td><span class="badge badge-${safe(b.status)}">${safe(b.status)}</span></td>
+      <td data-label="Client Name">${safe(b.name)}</td>
+      <td data-label="Service">${safe(b.service)}</td>
+      <td data-label="Date">${fmtDate(b.date)}</td>
+      <td data-label="Time">${safe(b.time)}</td>
+      <td data-label="Status"><span class="badge badge-${safe(b.status)}">${safe(b.status)}</span></td>
     </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;color:#9CA3AF;padding:2rem">No bookings yet</td></tr>';
 }
 
@@ -2817,20 +2817,20 @@ function renderBookingsTable(query = '') {
   if (!tbody) return;
   tbody.innerHTML = bookings.length ? [...bookings].reverse().map(b => `
     <tr>
-      <td>${safe(b.name)}</td>
-      <td>${safe(b.phone)}</td>
-      <td>${safe(b.service)}</td>
-      <td>${safe(b.price)}</td>
-      <td>${fmtDate(b.date)}</td>
-      <td>${safe(b.time)}</td>
-      <td>${b.esthetician === 'timothy' ? 'Timothy' : 'Chel-C'}</td>
-      <td>
+      <td data-label="Client">${safe(b.name)}</td>
+      <td data-label="Phone">${safe(b.phone)}</td>
+      <td data-label="Service">${safe(b.service)}</td>
+      <td data-label="Price">${safe(b.price)}</td>
+      <td data-label="Date">${fmtDate(b.date)}</td>
+      <td data-label="Time">${safe(b.time)}</td>
+      <td data-label="Esthetician">${b.esthetician === 'timothy' ? 'Timothy' : 'Chel-C'}</td>
+      <td data-label="Status">
         <select class="tbl-btn tbl-edit" data-prev="${safe(b.status)}" onchange="updateBookingStatus(${b.id},this.value,this)" style="padding:4px 8px;border:1px solid #E5E7EB;border-radius:6px;font-size:0.78rem;cursor:pointer;">
           ${['pending','confirmed','completed','cancelled'].map(s => `<option value="${s}" ${b.status===s?'selected':''}>${s.charAt(0).toUpperCase()+s.slice(1)}</option>`).join('')}
         </select>
       </td>
-      <td style="font-size:0.78rem;color:#6B7280;max-width:160px;">${b.cancelReason ? `<span title="${safe(b.cancelReason)}" style="color:#DC2626;">⚠ ${safe(b.cancelReason.length>40?b.cancelReason.slice(0,40)+'…':b.cancelReason)}</span>` : '—'}</td>
-      <td style="white-space:nowrap;">
+      <td data-label="Cancel Reason" style="font-size:0.78rem;color:#6B7280;max-width:160px;">${b.cancelReason ? `<span title="${safe(b.cancelReason)}" style="color:#DC2626;">⚠ ${safe(b.cancelReason.length>40?b.cancelReason.slice(0,40)+'…':b.cancelReason)}</span>` : '—'}</td>
+      <td data-label="Actions" style="white-space:nowrap;">
         <button class="tbl-btn tbl-edit-btn" onclick="editBooking(${b.id})" style="margin-right:4px;">Edit</button>
         <button class="tbl-btn tbl-delete" onclick="deleteBooking(${b.id})">Delete</button>
       </td>
@@ -3007,15 +3007,15 @@ function renderClientsTable(query = '') {
   if (!tbody) return;
   tbody.innerHTML = clients.length ? clients.map(c => `
     <tr class="${c.blocked ? 'client-blocked' : ''}">
-      <td>${safe(c.name)}</td>
-      <td>${safe(c.phone)}</td>
-      <td>${safe(c.email) || '—'}</td>
-      <td>${fmtDate(c.dob)}</td>
-      <td>${fmtDate(c.lastVisit)}</td>
-      <td>${c.totalVisits || 0}</td>
-      <td><span class="badge-${c.blocked ? 'blocked' : 'active'}">${c.blocked ? 'Blocked' : 'Active'}</span></td>
-      <td style="max-width:200px;">${safe(c.notes) || '—'}</td>
-      <td>
+      <td data-label="Name">${safe(c.name)}</td>
+      <td data-label="Phone">${safe(c.phone)}</td>
+      <td data-label="Email">${safe(c.email) || '—'}</td>
+      <td data-label="Date of Birth">${fmtDate(c.dob)}</td>
+      <td data-label="Last Visit">${fmtDate(c.lastVisit)}</td>
+      <td data-label="Total Visits">${c.totalVisits || 0}</td>
+      <td data-label="Status"><span class="badge-${c.blocked ? 'blocked' : 'active'}">${c.blocked ? 'Blocked' : 'Active'}</span></td>
+      <td data-label="Notes" style="max-width:200px;">${safe(c.notes) || '—'}</td>
+      <td data-label="Actions">
         <div class="tbl-actions">
           <button class="tbl-btn tbl-edit" onclick="editClient(${c.id})">Edit</button>
           <button class="tbl-btn ${c.blocked ? 'tbl-unblock' : 'tbl-block'}" onclick="toggleBlockClient(${c.id})">${c.blocked ? 'Unblock' : 'Block'}</button>
@@ -3111,14 +3111,14 @@ function renderInventoryTable(query = '') {
   if (!tbody) return;
   tbody.innerHTML = items.length ? items.map(item => `
     <tr>
-      <td>${safe(item.name)}</td>
-      <td>${safe(item.category) || '—'}</td>
-      <td>${item.price ? 'TTD ' + item.price : '—'}</td>
-      <td class="${item.qty <= item.minQty ? 'stock-low' : ''}">${item.qty}</td>
-      <td>${item.minQty}</td>
-      <td><span class="badge ${item.qty <= item.minQty ? 'badge-low' : 'badge-ok'}">${item.qty <= item.minQty ? 'Low Stock' : 'OK'}</span></td>
-      <td style="max-width:200px;">${safe(item.notes) || '—'}</td>
-      <td>
+      <td data-label="Item Name">${safe(item.name)}</td>
+      <td data-label="Category">${safe(item.category) || '—'}</td>
+      <td data-label="Price (TTD)">${item.price ? 'TTD ' + item.price : '—'}</td>
+      <td data-label="Qty in Stock" class="${item.qty <= item.minQty ? 'stock-low' : ''}">${item.qty}</td>
+      <td data-label="Min Qty">${item.minQty}</td>
+      <td data-label="Status"><span class="badge ${item.qty <= item.minQty ? 'badge-low' : 'badge-ok'}">${item.qty <= item.minQty ? 'Low Stock' : 'OK'}</span></td>
+      <td data-label="Notes" style="max-width:200px;">${safe(item.notes) || '—'}</td>
+      <td data-label="Actions">
         <div class="tbl-actions">
           <button class="tbl-btn tbl-edit" onclick="editInventory(${item.id})">Edit</button>
           <button class="tbl-btn tbl-delete" onclick="deleteInventory(${item.id})">Delete</button>
@@ -4308,11 +4308,11 @@ function initServicesMgr() {
         count++;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td><span class="admin-tag">${safe(cat)}</span></td>
-          <td>${safe(svc.name)}</td>
-          <td>${safe(svc.price)}</td>
-          <td>${safe(svc.duration)}</td>
-          <td>
+          <td data-label="Category"><span class="admin-tag">${safe(cat)}</span></td>
+          <td data-label="Service Name">${safe(svc.name)}</td>
+          <td data-label="Price">${safe(svc.price)}</td>
+          <td data-label="Duration">${safe(svc.duration)}</td>
+          <td data-label="Actions">
             <button class="btn-admin btn-admin-ghost" style="padding:4px 10px;font-size:0.78rem;" data-edit-cat="${safe(cat)}" data-edit-idx="${idx}">Edit</button>
             <button class="btn-admin" style="padding:4px 10px;font-size:0.78rem;background:#DC2626;color:white;border-color:#DC2626;" data-del-cat="${safe(cat)}" data-del-idx="${idx}">Delete</button>
           </td>`;
@@ -4443,13 +4443,13 @@ function initCoursesMgr() {
     filtered.forEach(course => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><strong>${safe(course.name)}</strong>${course.desc ? `<br><span style="font-size:0.78rem;color:#9CA3AF;">${safe(course.desc)}</span>` : ''}</td>
-        <td><span class="admin-tag">${safe(course.level)}</span></td>
-        <td>${safe(course.duration)}</td>
-        <td>${safe(course.price)}</td>
-        <td>${course.deposit ? safe(course.deposit) : '—'}</td>
-        <td>${STATUS_LABELS[course.status] || safe(course.status)}</td>
-        <td>
+        <td data-label="Course Name"><strong>${safe(course.name)}</strong>${course.desc ? `<br><span style="font-size:0.78rem;color:#9CA3AF;">${safe(course.desc)}</span>` : ''}</td>
+        <td data-label="Level"><span class="admin-tag">${safe(course.level)}</span></td>
+        <td data-label="Duration">${safe(course.duration)}</td>
+        <td data-label="Price">${safe(course.price)}</td>
+        <td data-label="Deposit">${course.deposit ? safe(course.deposit) : '—'}</td>
+        <td data-label="Status">${STATUS_LABELS[course.status] || safe(course.status)}</td>
+        <td data-label="Actions">
           <button class="btn-admin btn-admin-ghost" style="padding:4px 10px;font-size:0.78rem;" data-edit-id="${safe(course.id)}">Edit</button>
           <button class="btn-admin" style="padding:4px 10px;font-size:0.78rem;background:#DC2626;color:white;border-color:#DC2626;" data-del-id="${safe(course.id)}">Delete</button>
         </td>`;
