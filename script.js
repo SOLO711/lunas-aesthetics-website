@@ -82,7 +82,7 @@ const LAUNCH_END  = '2026-06-15';
 // containing block. iOS Safari needs touchmove preventDefault to stop rubber-band scroll.
 // We never set position:fixed on body — Chrome incorrectly uses it as a fixed-child container.
 function _noTouchMove(e) {
-  if (e.target.closest && e.target.closest('.qb-body,.consent-body,.cart-items')) return;
+  if (e.target.closest && e.target.closest('.qb-body,.consent-body,.cart-items,.modal-box')) return;
   e.preventDefault();
 }
 function lockScroll() {
