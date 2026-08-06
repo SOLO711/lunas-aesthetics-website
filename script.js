@@ -608,6 +608,13 @@ const CLOSING_MINUTES = 17 * 60;
 
 function _toMins(t24) { const [h, m] = t24.split(':').map(Number); return h * 60 + m; }
 
+// Inverse of _toMins: minute-of-day -> 24hr "HH:MM".
+function _minsTo24hr(mins) {
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
 // Returns every 30-min booking slot string (12hr) that falls inside [startTime, endTime)
 function _manualBlockedSlots(startTime, endTime) {
   const start = _toMins(startTime);
@@ -626,6 +633,15 @@ function parseDurationMinutes(str) {
   const mins  = mMatch ? parseInt(mMatch[1], 10) : 0;
   const total = hours * 60 + mins;
   return total > 0 ? total : 30;
+}
+
+// Inverse of parseDurationMinutes — chosen so the round-trip through it reproduces the same total.
+function _formatDurationLabel(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
 }
 
 function totalDurationMinutes(services) {
@@ -2908,6 +2924,26 @@ window.deleteBooking = async id => {
   renderBookingsTable(); renderDashboard(); renderCalendar();
 };
 
+function _updateDurationDisplay() {
+  const el = document.getElementById('ebDurationDisplay');
+  if (!el) return;
+  const startRaw = document.getElementById('ebTime').value;
+  const endRaw   = document.getElementById('ebEndTime').value;
+  if (!startRaw || !endRaw) { el.textContent = '—'; el.style.color = ''; return; }
+  const mins = _toMins(endRaw) - _toMins(startRaw);
+  if (mins <= 0) { el.textContent = 'End time must be after start time'; el.style.color = '#DC2626'; return; }
+  el.textContent = _formatDurationLabel(mins);
+  el.style.color = '';
+}
+document.getElementById('ebTime')?.addEventListener('change', () => {
+  const endEl = document.getElementById('ebEndTime');
+  const startRaw = document.getElementById('ebTime').value;
+  // Only auto-fill if End Time is still blank, so we never clobber a duration already set.
+  if (endEl && !endEl.value && startRaw) endEl.value = _minsTo24hr(_toMins(startRaw) + 30);
+  _updateDurationDisplay();
+});
+document.getElementById('ebEndTime')?.addEventListener('change', _updateDurationDisplay);
+
 window.editBooking = id => {
   const b = getDB('lunas_bookings').find(x => x.id === id);
   if (!b) return;
@@ -2921,7 +2957,12 @@ window.editBooking = id => {
   document.getElementById('ebEsthetician').value  = b.esthetician || 'chel-c';
   document.getElementById('ebDate').value         = b.date || '';
   document.getElementById('ebTime').value         = b.time ? _to24hr(b.time) : '';
+  const _startMins = b.time ? _toMins(_to24hr(b.time)) : null;
+  document.getElementById('ebEndTime').value = _startMins !== null
+    ? _minsTo24hr(_startMins + totalDurationMinutes(b.services))
+    : '';
   document.getElementById('ebNotes').value        = b.notes || '';
+  _updateDurationDisplay();
   document.getElementById('editBookingModal').classList.add('open');
 };
 
@@ -2936,7 +2977,9 @@ window.openAddBooking = () => {
   document.getElementById('ebEsthetician').value  = 'chel-c';
   document.getElementById('ebDate').value         = new Date().toISOString().split('T')[0];
   document.getElementById('ebTime').value         = '';
+  document.getElementById('ebEndTime').value      = '';
   document.getElementById('ebNotes').value        = '';
+  _updateDurationDisplay();
   document.getElementById('editBookingModal').classList.add('open');
 };
 document.getElementById('addBookingBtn')?.addEventListener('click', () => window.openAddBooking());
@@ -2953,19 +2996,31 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async e =
   const date        = document.getElementById('ebDate').value;
   const timeRaw     = document.getElementById('ebTime').value;
   const time        = timeRaw ? _to12hr(timeRaw) : '';
+  const endTimeRaw  = document.getElementById('ebEndTime').value;
+  const endTime     = endTimeRaw ? _to12hr(endTimeRaw) : '';
   const esthetician = document.getElementById('ebEsthetician').value;
   const notes       = document.getElementById('ebNotes').value.trim();
+
+  // Applies to adds AND edits — a nonsensical end time is a data problem either way.
+  if (timeRaw && endTimeRaw && _toMins(endTimeRaw) <= _toMins(timeRaw)) {
+    alert('End time must be after the start time.');
+    return;
+  }
+  const durationMinutes = (timeRaw && endTimeRaw) ? _toMins(endTimeRaw) - _toMins(timeRaw) : 30;
 
   const isNew = !getDB('lunas_bookings').some(x => x.id === id);
 
   if (isNew) {
-    if (!name)  { alert('Please enter a client name.'); return; }
-    if (!phone) { alert('Please enter a phone number.'); return; }
-    if (!date)  { alert('Please choose a date.'); return; }
-    if (!time)  { alert('Please choose a time.'); return; }
+    if (!name)    { alert('Please enter a client name.'); return; }
+    if (!phone)   { alert('Please enter a phone number.'); return; }
+    if (!date)    { alert('Please choose a date.'); return; }
+    if (!time)    { alert('Please choose a start time.'); return; }
+    if (!endTime) { alert('Please choose an end time.'); return; }
     const { chelcBooked, timothyBooked } = await getBookedSlots(date);
     const esthBooked = esthetician === 'timothy' ? timothyBooked : chelcBooked;
-    if (esthBooked.includes(time) && !confirm('This time overlaps an existing booking for this esthetician — add anyway?')) {
+    const newSlots = _occupiedSlots(time, durationMinutes);
+    if (newSlots.some(slot => esthBooked.includes(slot)) &&
+        !confirm('This time overlaps an existing booking for this esthetician — add anyway?')) {
       return;
     }
   }
@@ -2976,17 +3031,19 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async e =
     const wasNew = !b;
     wasNewBooking = wasNew;
     if (wasNew) {
-      b = { id, created: new Date().toISOString(), services: [], discountedPrice: null, promoApplied: null, status: 'confirmed' };
+      b = { id, created: new Date().toISOString(), discountedPrice: null, promoApplied: null, status: 'confirmed' };
       bookings.push(b);
     }
     b.name        = name;
     b.phone       = phone;
     b.email       = email;
     b.service     = service;
+    b.services    = [{ name: service || 'Appointment', price, duration: _formatDurationLabel(durationMinutes), category: null }];
     b.price       = price;
     b.esthetician = esthetician;
     b.date        = date;
     b.time        = time;
+    b.endTime     = endTime;
     b.notes       = notes;
     if (!wasNew) { b.modified = new Date().toISOString(); b.modifiedBy = 'admin'; }
   });

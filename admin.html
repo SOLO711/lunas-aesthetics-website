@@ -813,8 +813,16 @@
           <input type="date" id="ebDate" required/>
         </div>
         <div class="mfg" style="margin:0;">
-          <label>Time *</label>
+          <label>Start Time *</label>
           <input type="time" id="ebTime" required/>
+        </div>
+        <div class="mfg" style="margin:0;">
+          <label>End Time *</label>
+          <input type="time" id="ebEndTime" required/>
+        </div>
+        <div class="mfg" style="margin:0;">
+          <label>Duration</label>
+          <div id="ebDurationDisplay" style="padding:10px 13px;font-size:0.9rem;color:var(--adm-muted,#6B7280);">—</div>
         </div>
         <div class="mfg" style="margin:0;grid-column:1/-1;">
           <label>Notes</label>
@@ -1104,6 +1112,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<script src="script.js?v=28"></script>
+<script src="script.js?v=29"></script>
 </body>
 </html>
