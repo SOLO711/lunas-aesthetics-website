@@ -1715,6 +1715,10 @@ function initProShop() {
     { id: 56, name: "x12 Mini Ingrown Hair Oil (5 mL, Nude)", shortDesc: "Travel/discovery-size ingrown hair oil dropper — softens skin and reduces razor bumps & ingrown hairs. Signature barely-there tea tree scent.", price: 600.00, image: "mini-ingrown-hair-oil-nude.jpeg" },
     { id: 57, name: "x12 Mini Ingrown Hair Oil (5 mL, Watermelon Sugar)", shortDesc: "Travel/discovery-size ingrown hair oil dropper — softens skin and reduces razor bumps & ingrown hairs. Juicy, sweet watermelon scent.", price: 600.00, image: "mini-ingrown-hair-oil-watermelon-sugar.jpeg" },
     { id: 58, name: "x12 Mini Dark Spot Oil (5 mL, Bermuda)", shortDesc: "Travel/discovery-size dark spot oil dropper — brightens, softens and reduces the look of dark spots anywhere on the body. Fresh citrus scent.", price: 600.00, image: "mini-dark-spot-oil-bermuda.jpeg" },
+    { id: 59, name: "x6 Wild Mint & Lemon · Dark Spot Oil (1 fl oz)", shortDesc: "Limited-edition Wild Mint & Lemon Dark Spot Oil — the same brightening formula that visibly improves dark spots and uneven skin tone, in a crisp, citrusy scent.", price: 200.00, image: "dark-spot-oil-wild-mint-lemon.jpeg" },
+    { id: 60, name: "x6 Wild Mint & Lemon · Dark Spot Exfoliating Scrub (8 fl oz)", shortDesc: "Limited-edition Wild Mint & Lemon Dark Spot Scrub — brightens and smooths skin pre- and post-treatment. Crisp, citrusy scent.", price: 200.00, image: "dark-spot-scrub-wild-mint-lemon.jpeg" },
+    { id: 61, name: "x6 Summer Vacay · Ingrown Hair Exfoliating Body Scrub (8 fl oz)", shortDesc: "Esthetician-exclusive Summer Vacay sugar scrub — clears pores and softens skin pre- and post-treatment while reducing the look of ingrown hairs and razor bumps.", price: 200.00, image: "summer-vacay-scrub.jpeg" },
+    { id: 62, name: "x6 Summer Vacay · Ingrown Hair Pre/Post-Wax Oil (1 fl oz)", shortDesc: "Esthetician-exclusive Summer Vacay oil — antioxidant-rich blend that softens skin and reduces ingrown hairs & razor bumps after hair removal.", price: 200.00, image: "summer-vacay-oil.jpeg" },
   ];
 
   grid.innerHTML = PRO_PRODUCTS.map(p => `
