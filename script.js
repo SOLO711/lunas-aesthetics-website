@@ -4529,7 +4529,7 @@ function initCoursesMgr() {
     { id: 6, name: 'Advanced Facial Certification Program', level: 'Advanced', duration: '8 Weeks', price: 'TTD 5,000', deposit: 'TTD 2,500', desc: 'Advanced facial techniques and protocols.', status: 'active' },
     { id: 7, name: 'Facial Master Certification Program', level: 'Master Bundle', duration: '14 Weeks', price: 'TTD 8,500', deposit: 'TTD 4,250', desc: 'Complete facial mastery — Basic + Advanced bundle.', status: 'active' },
     { id: 8, name: 'Body Contouring Certification Course', level: 'Advanced', duration: '4 Days', price: 'TTD 3,000', deposit: 'TTD 1,500', desc: 'Professional body contouring and sculpting certification.', status: 'active' },
-    { id: 9, name: 'Eyebrow Tint, Lamination & Sculpt Certification', level: 'Beginner', duration: '3 Days', price: 'TTD 3,000', deposit: 'TTD 1,500', desc: 'Full brow tinting, lamination, and sculpting with Brow Daddy kit.', status: 'active' },
+    { id: 9, name: 'Eyebrow Tint, Lamination & Sculpt Certification', level: 'Beginner', duration: '3 Days', price: 'TTD 3,000', deposit: 'TTD 1,500', desc: 'Full brow tinting, lamination, and sculpting — professional kit included.', status: 'active' },
     { id: 10, name: 'The Pink Print Empire™', level: 'Signature Program', duration: '4 Weeks', price: 'TTD 10,000', deposit: 'TTD 3,000', desc: "Luna's all-inclusive signature training experience.", status: 'upcoming' },
   ];
 
