@@ -482,18 +482,42 @@ let _syncReady = false;
 const _syncCallbacks = [];
 function onSyncReady(fn) { _syncReady ? fn() : _syncCallbacks.push(fn); }
 
-async function _fsGet(key) {
-  try {
+// Reads one site_data doc and reports WHY it came back empty.
+//   { ok:false }            → the read FAILED (timeout, network, non-2xx, bad JSON).
+//                             Callers must NEVER treat this as "no data".
+//   { ok:true, data:null }  → the document genuinely does not exist (404) or has no
+//                             `value` field. Safe to treat as a first write.
+//   { ok:true, data:<any> } → parsed value.
+// On 2026-08-30 a single 5s no-retry read destroyed site_data/bookings: the fetch
+// timed out, the caller read it as "empty", and one booking was PATCHed over ~100
+// real ones. Any read that GATES a write must pass a generous timeout + retries.
+async function _fsRead(key, { timeout = 8000, retries = 0 } = {}) {
+  let lastErr = 'unknown';
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, 700 * Math.pow(2, attempt - 1)));
     const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 5000);
-    const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}`, { signal: ctrl.signal });
-    clearTimeout(tid);
-    if (!res.ok) return null;
-    const doc = await res.json();
-    const sv = doc.fields?.value?.stringValue;
-    return sv ? JSON.parse(sv) : null;
-  } catch(e) { return null; }
+    const tid = setTimeout(() => ctrl.abort(), timeout);
+    try {
+      const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}`, { signal: ctrl.signal });
+      clearTimeout(tid);
+      if (res.status === 404) return { ok: true, data: null, status: 404 };
+      if (!res.ok) { lastErr = 'HTTP ' + res.status; continue; }
+      const doc = await res.json();
+      const sv = doc.fields?.value?.stringValue;
+      if (sv === undefined || sv === '') return { ok: true, data: null, status: 200 };
+      return { ok: true, data: JSON.parse(sv), status: 200 };
+    } catch(e) {
+      clearTimeout(tid);
+      lastErr = e.name === 'AbortError' ? ('timeout after ' + timeout + 'ms') : (e.message || 'network error');
+    }
+  }
+  console.warn('[Firestore] read failed [' + key + ']: ' + lastErr);
+  return { ok: false, data: null, error: lastErr };
 }
+
+// Back-compat wrapper: same contract as before (null on both failure and empty).
+// Kept so the read-only call sites need no change. Only the timeout moves 5s → 8s.
+async function _fsGet(key) { return (await _fsRead(key)).data; }
 async function _fsSet(key, val) {
   try {
     const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}&updateMask.fieldPaths=value`, {
@@ -551,24 +575,34 @@ function getProOrders() {
   try { return JSON.parse(localStorage.getItem('lunas_pro_orders') || '[]'); }
   catch(e) { return []; }
 }
+// Routed through the fail-closed _mutateStore: this had the identical
+// blind-overwrite shape that destroyed site_data/bookings on 2026-08-30 (build the
+// whole array from localStorage, then _fsSet it), so a first-time customer whose
+// pro_orders fetch timed out would have replaced every existing order with theirs.
 async function saveProOrderRecord(order) {
-  const all = getProOrders();
-  all.push(order);
-  localStorage.setItem('lunas_pro_orders', JSON.stringify(all));
-  return await _fsSet('pro_orders', all);
+  return await _mutateProOrders(all => { all.push(order); });
 }
 function saveProOrders(all) {
   localStorage.setItem('lunas_pro_orders', JSON.stringify(all));
   return _fsSet('pro_orders', all);
 }
+// Returns null if the counter can't be read — the caller MUST abort rather than
+// fall back to a local counter, which would reissue a live invoice number.
 async function nextProInvoiceId() {
-  let counter = await _fsGet('pro_order_counter');
-  if (typeof counter !== 'number' || isNaN(counter)) {
-    counter = parseInt(localStorage.getItem('lunas_pro_order_counter') || '0', 10) || 0;
+  const r = await _fsRead('pro_order_counter', { timeout: 15000, retries: 2 });
+  if (!r.ok) {
+    console.error('[Pro Shop] ABORTED — could not read the invoice counter (' + r.error + ')');
+    return null;
   }
+  let counter = r.data;
+  if (typeof counter !== 'number' || isNaN(counter)) counter = 0;
   counter += 1;
+  const ok = await _fsSet('pro_order_counter', counter);
+  if (!ok) {
+    console.error('[Pro Shop] ABORTED — could not save the invoice counter');
+    return null;
+  }
   localStorage.setItem('lunas_pro_order_counter', String(counter));
-  await _fsSet('pro_order_counter', counter);
   return 'INV-LEABUSH' + String(counter).padStart(6, '0');
 }
 
@@ -674,26 +708,30 @@ async function getBookedSlots(dateStr) {
       });
   }
 
-  try {
-    const allBookings = await _fsGet('bookings');
-    _categorize(allBookings || getDB('lunas_bookings'));
-  } catch(e) {
+  // `ok` reports whether availability was actually VERIFIED against the server.
+  // Display still falls back to the local cache (a stale grid beats a blank one),
+  // but the write path must refuse to save a booking when ok === false.
+  let ok = true;
+
+  const rb = await _fsRead('bookings', { timeout: 12000, retries: 1 });
+  if (rb.ok) {
+    const fresh = rb.data || [];
+    _categorize(fresh);
+    // Self-heal the local cache from a known-good read.
+    try { localStorage.setItem('lunas_bookings', JSON.stringify(fresh)); } catch(e) {}
+  } else {
+    ok = false;
     _categorize(getDB('lunas_bookings'));
   }
 
-  try {
-    const allManual = await _fsGet('manual_events');
-    const source = allManual || getManualEvents();
-    manualBlocked.push(...source
-      .filter(e => e.date === dateStr && e.startTime && e.endTime)
-      .flatMap(e => _manualBlockedSlots(e.startTime, e.endTime)));
-  } catch(e) {
-    manualBlocked.push(...getManualEvents()
-      .filter(e => e.date === dateStr && e.startTime && e.endTime)
-      .flatMap(e => _manualBlockedSlots(e.startTime, e.endTime)));
-  }
+  const rm = await _fsRead('manual_events', { timeout: 12000, retries: 1 });
+  if (!rm.ok) ok = false;
+  const manualSrc = rm.ok ? (rm.data || []) : getManualEvents();
+  manualBlocked.push(...manualSrc
+    .filter(e => e.date === dateStr && e.startTime && e.endTime)
+    .flatMap(e => _manualBlockedSlots(e.startTime, e.endTime)));
 
-  return { chelcBooked, timothyBooked, manualBlocked };
+  return { chelcBooked, timothyBooked, manualBlocked, ok };
 }
 
 async function saveBookingRecord(booking) {
@@ -1084,7 +1122,8 @@ function initBooking() {
 
     // Fetch fresh blocked dates from Firestore for real-time accuracy.
     // Fail CLOSED: if we can't verify availability, don't show any slots as bookable.
-    const freshBD = await _fsGet('blocked_dates');
+    const _rBD = await _fsRead('blocked_dates', { timeout: 12000, retries: 1 });
+    const freshBD = _rBD.ok ? (_rBD.data || { months: [], days: [], timeSlots: [] }) : null;
     if (!freshBD) {
       timeWrap.innerHTML = '<div class="slot-closed-msg">⚠️ Couldn\'t verify availability — check your connection and <a href="#" id="retryAvailabilityLink">try again</a>.</div>';
       document.getElementById('retryAvailabilityLink')?.addEventListener('click', ev => { ev.preventDefault(); renderTimeSlots(dateStr); });
@@ -1106,7 +1145,16 @@ function initBooking() {
     }
 
     timeWrap.innerHTML = '<span style="color:var(--text-light);font-size:0.84rem;padding:0.4rem 0;display:block;">Checking availability…</span>';
-    const { chelcBooked, timothyBooked, manualBlocked } = await getBookedSlots(dateStr);
+    const { chelcBooked, timothyBooked, manualBlocked, ok: _slotsOk } = await getBookedSlots(dateStr);
+    if (!_slotsOk) {
+      timeWrap.innerHTML = '<div class="slot-closed-msg">⚠️ Couldn\'t verify availability — check your connection and <a href="#" id="retrySlotsLink">try again</a>.</div>';
+      document.getElementById('retrySlotsLink')?.addEventListener('click', ev => { ev.preventDefault(); renderTimeSlots(dateStr); });
+      selectedTimeInput.value = '';
+      _bookingType = 'confirmed';
+      if (requestNotice) requestNotice.style.display = 'none';
+      updateSummary();
+      return;
+    }
     timeWrap.innerHTML = '';
     if (requestNotice) requestNotice.style.display = 'none';
 
@@ -1306,7 +1354,8 @@ function initBooking() {
     // Re-check blocked dates before confirming. Fail CLOSED: if we can't verify
     // against the server, do not proceed — a stale/empty local cache must never
     // be treated as "unblocked".
-    const freshBD2 = await _fsGet('blocked_dates');
+    const _rBD2 = await _fsRead('blocked_dates', { timeout: 12000, retries: 1 });
+    const freshBD2 = _rBD2.ok ? (_rBD2.data || { months: [], days: [], timeSlots: [] }) : null;
     if (!freshBD2) {
       alert('Unable to verify availability right now — please check your connection and try again in a moment.');
       return;
@@ -1321,7 +1370,11 @@ function initBooking() {
     }
 
     // Re-check slot availability before confirming
-    const { chelcBooked: _fc, timothyBooked: _ft, manualBlocked: freshManual } = await getBookedSlots(dateStr);
+    const { chelcBooked: _fc, timothyBooked: _ft, manualBlocked: freshManual, ok: _slotsOk1 } = await getBookedSlots(dateStr);
+    if (!_slotsOk1) {
+      alert('Unable to verify availability right now — please check your connection and try again in a moment.');
+      return;
+    }
     const freshEsthBooked = _selectedEsthetician === 'timothy' ? _ft : _fc;
     if (freshEsthBooked.includes(timeStr) || freshManual.includes(timeStr)) {
       alert('This time is no longer available. Please choose a different time.');
@@ -1339,7 +1392,8 @@ function initBooking() {
 
     // Final authoritative re-check, right before writing — closes the window
     // where the client sat on the consent modal while the day got blocked.
-    const freshBD3 = await _fsGet('blocked_dates');
+    const _rBD3 = await _fsRead('blocked_dates', { timeout: 12000, retries: 1 });
+    const freshBD3 = _rBD3.ok ? (_rBD3.data || { months: [], days: [], timeSlots: [] }) : null;
     if (!freshBD3) {
       alert('Unable to verify availability right now — please check your connection and try again in a moment.');
       submitBtn.disabled = false;
@@ -1356,7 +1410,13 @@ function initBooking() {
       submitBtn.textContent = 'Confirm Booking ✨';
       return;
     }
-    const { chelcBooked: _fc2, timothyBooked: _ft2, manualBlocked: _freshManual2 } = await getBookedSlots(dateStr);
+    const { chelcBooked: _fc2, timothyBooked: _ft2, manualBlocked: _freshManual2, ok: _slotsOk2 } = await getBookedSlots(dateStr);
+    if (!_slotsOk2) {
+      alert('Unable to verify availability right now — please check your connection and try again in a moment.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Confirm Booking ✨';
+      return;
+    }
     const _freshEsthBooked2 = _selectedEsthetician === 'timothy' ? _ft2 : _fc2;
     if (_freshEsthBooked2.includes(timeStr) || _freshManual2.includes(timeStr)) {
       alert('This time is no longer available. Please choose a different time.');
@@ -1389,10 +1449,29 @@ function initBooking() {
       created: new Date().toISOString(),
     };
 
-    const _fsSaved = await saveBookingRecord(booking);
+    // Idempotency: if an earlier attempt actually landed and only its response was
+    // lost, a retry must not create a duplicate booking for the same slot.
+    let _dupe = false;
+    const _fsSaved = await _mutateBookings(all => {
+      if (all.some(b => b.phone === booking.phone && b.date === booking.date && b.time === booking.time && b.status !== 'cancelled')) {
+        _dupe = true;
+        return false;
+      }
+      all.push(booking);
+    });
+
+    // Fail CLOSED: never show a success panel or send a confirmation email for a
+    // booking the server did not confirm. Before 2026-08-30 this path carried on
+    // regardless and told the client their booking was "saved locally" — it wasn't.
+    if (!_fsSaved) {
+      alert('We couldn\'t confirm your booking with our server — nothing was saved. Please check your connection and press Confirm again, or call us on 1(868) 463-9306.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Confirm Booking ✨';
+      return;
+    }
 
     // Auto-save client record
-    _mutateClients(clients => {
+    const _clientsOk = await _mutateClients(clients => {
       const existingIdx = clients.findIndex(c => c.phone === booking.phone);
       if (existingIdx >= 0) {
         clients[existingIdx].lastVisit = booking.date;
@@ -1412,6 +1491,9 @@ function initBooking() {
         });
       }
     });
+    // The booking itself is saved; a failed client-record update is recoverable
+    // (the record is derivable from the booking) but must not pass silently.
+    if (!_clientsOk) console.warn('[Booking] client record was not updated for', booking.phone);
 
     const formattedDate = new Date(dateStr + 'T00:00').toLocaleDateString('en-TT', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -1887,6 +1969,12 @@ function initProShop() {
 
     try {
       const invoiceId = await nextProInvoiceId();
+      if (!invoiceId) {
+        alert('We couldn\'t reach our server to raise your invoice — nothing was ordered. Please check your connection and try again, or call us on 1(868) 463-9306.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Order ✉️';
+        return;   // form is intentionally NOT reset, so they can just retry
+      }
       const order = {
         id: Date.now(),
         invoiceId,
@@ -1899,7 +1987,13 @@ function initProShop() {
         status: 'pending',
         created: new Date().toISOString(),
       };
-      await saveProOrderRecord(order);
+      const _orderSaved = await saveProOrderRecord(order);
+      if (!_orderSaved) {
+        alert('We couldn\'t confirm your order with our server — nothing was saved. Please check your connection and try again, or call us on 1(868) 463-9306.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Order ✉️';
+        return;   // abort BEFORE any invoice email is sent
+      }
       try { await sendProBusinessEmail(order); } catch (err) { console.error('Pro order business email failed:', err); }
       try { await sendProClientEmail(order); }   catch (err) { console.error('Pro order client email failed:', err); }
 
@@ -2252,8 +2346,12 @@ function _mutateBlockedDates(mutatorFn, btn) {
   const run = async () => {
     if (btn) btn.disabled = true;
     try {
-      const fresh = await _fsGet('blocked_dates');
-      const bd = fresh || getBlockedDates();
+      const r = await _fsRead('blocked_dates', { timeout: 15000, retries: 2 });
+      if (!r.ok) {
+        alert('⚠️ Could not reach the server to check the current blocked dates — check your connection and try again. This change was NOT saved.');
+        return;
+      }
+      const bd = r.data === null ? { months: [], days: [], timeSlots: [] } : r.data;
       if (mutatorFn(bd) === false) return;
       const ok = await saveBlockedDates(bd);
       if (!ok) {
@@ -2270,22 +2368,43 @@ function _mutateBlockedDates(mutatorFn, btn) {
   return _blockedDatesQueue;
 }
 
-// Same lost-update guard as _mutateBlockedDates above, generalized to any
-// setDB-backed store (bookings, clients, inventory): fetches the freshest
+// Lost-update guard generalized to any setDB-backed store: fetches the freshest
 // list from Firestore right before mutating (instead of the page-load-time
-// localStorage snapshot), so a write from one browser tab/session can't
-// silently erase a write made elsewhere in the meantime. Calls against the
-// same store are serialized through a per-store queue. Returns true/false
-// so callers can surface a failure instead of rendering as if it saved.
+// localStorage snapshot), so a write from one tab/session can't silently erase a
+// write made elsewhere. Calls against the same store are serialized through a
+// per-store queue. Returns true/false so callers can surface a failure.
+//
+// FAIL-CLOSED. On 2026-08-30 this function read `fresh || getDB(localKey)`: a 5s
+// read timeout on the (largest) bookings doc returned null, getDB fell back to a
+// localStorage key that _syncOnLoad had also failed to populate, and one new
+// booking was pushed onto [] and PATCHed over ~100 real bookings.
+// Rules now: a failed read ABORTS the write — there is no localStorage fallback,
+// ever; only a CONFIRMED-empty document may seed []; and an implausible shrink
+// aborts rather than overwrites. Returns true/false so callers can surface it.
 const _storeQueues = {};
 function _mutateStore(fsKey, mutatorFn, btn) {
   const localKey = 'lunas_' + fsKey;
   const run = async () => {
     if (btn) btn.disabled = true;
     try {
-      const fresh = await _fsGet(fsKey);
-      const list = fresh || getDB(localKey);
+      const r = await _fsRead(fsKey, { timeout: 15000, retries: 2 });
+      if (!r.ok) {
+        console.error('[Firestore] ABORTED write to ' + fsKey + ' — could not verify current contents (' + r.error + ')');
+        return false;
+      }
+      const list = r.data === null ? [] : r.data;
+      if (!Array.isArray(list)) {
+        console.error('[Firestore] ABORTED write to ' + fsKey + ' — unexpected shape');
+        return false;
+      }
+      const before = list.length;
       if (mutatorFn(list) === false) return true;
+      // No legitimate mutator here removes more than one record; a large shrink
+      // means something upstream is wrong. Bulk restores bypass via importAllData.
+      if (before > 5 && list.length < before - 1) {
+        console.error('[Firestore] ABORTED write to ' + fsKey + ' — implausible shrink ' + before + ' → ' + list.length);
+        return false;
+      }
       const ok = await _fsSet(fsKey, list);
       if (ok) localStorage.setItem(localKey, JSON.stringify(list));
       return ok;
@@ -2301,6 +2420,7 @@ function _mutateStore(fsKey, mutatorFn, btn) {
 function _mutateBookings(mutatorFn, btn) { return _mutateStore('bookings', mutatorFn, btn); }
 function _mutateClients(mutatorFn, btn) { return _mutateStore('clients', mutatorFn, btn); }
 function _mutateInventory(mutatorFn, btn) { return _mutateStore('inventory', mutatorFn, btn); }
+function _mutateProOrders(mutatorFn, btn) { return _mutateStore('pro_orders', mutatorFn, btn); }
 
 window.unblockMonth = m => {
   _mutateBlockedDates(bd => { bd.months = (bd.months || []).filter(x => x !== m); });
@@ -2918,8 +3038,11 @@ window.updateBookingStatus = async (id, status, selectEl) => {
     b.modified = new Date().toISOString();
     b.modifiedBy = 'admin';
   });
-  if (!found) return;
+  // `ok` must be checked FIRST: when the read fails the mutator never runs, so
+  // `found` stays false and returning on it would swallow the error silently,
+  // leaving the dropdown showing a status that was never saved.
   if (!ok) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); return; }
+  if (!found) return;
   renderBookingsTable();
   renderDashboard();
   renderCalendar();
@@ -5007,24 +5130,53 @@ function importAllData(file) {
   if (!file) return;
   const msgEl = document.getElementById('restoreMsg');
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
       const data = JSON.parse(e.target.result);
       const _restoreFsKeys = { 'lunas_bookings': 'bookings', 'lunas_clients': 'clients', 'lunas_inventory': 'inventory', 'lunas_services': 'services', 'lunas_courses': 'courses' };
       const keys = Object.keys(_restoreFsKeys);
-      let count = 0;
-      keys.forEach(k => {
-        if (data[k] !== undefined) {
-          localStorage.setItem(k, JSON.stringify(data[k]));
-          _fsSet(_restoreFsKeys[k], data[k]);
-          count++;
+
+      // Show what this restore would replace, so a SHRINKING restore is a
+      // conscious act rather than an accident.
+      const summary = [];
+      for (const k of keys) {
+        if (data[k] === undefined) continue;
+        const cur = await _fsRead(_restoreFsKeys[k], { timeout: 15000, retries: 2 });
+        if (!cur.ok) {
+          if (msgEl) {
+            msgEl.textContent = `Could not read the current "${_restoreFsKeys[k]}" data to compare — nothing was restored. Check your connection and try again.`;
+            msgEl.style.cssText = 'display:block;background:#FEE2E2;color:#DC2626;padding:0.75rem 1rem;border-radius:6px;font-size:0.85rem;font-weight:600;margin-top:1rem;';
+          }
+          return;
         }
-      });
+        const n = x => Array.isArray(x) ? x.length : (x && typeof x === 'object' ? Object.keys(x).length : 0);
+        summary.push(`  ${_restoreFsKeys[k]}: ${n(cur.data)} → ${n(data[k])}`);
+      }
+      if (!summary.length) { if (msgEl) msgEl.textContent = 'Nothing in that file to restore.'; return; }
+      if (!confirm('This will REPLACE the live data:\n\n' + summary.join('\n') + '\n\nContinue?')) return;
+
+      // Await every write — the old code fired these off unawaited and reloaded
+      // after 2s, which could abort a large in-flight restore and silently lose it.
+      let count = 0;
+      const failed = [];
+      for (const k of keys) {
+        if (data[k] === undefined) continue;
+        const ok = await _fsSet(_restoreFsKeys[k], data[k]);
+        if (ok) { localStorage.setItem(k, JSON.stringify(data[k])); count++; }
+        else failed.push(_restoreFsKeys[k]);
+      }
+      if (failed.length) {
+        if (msgEl) {
+          msgEl.textContent = `Restore FAILED for: ${failed.join(', ')}. ${count} data set(s) were written. Not refreshing — check your connection and try again.`;
+          msgEl.style.cssText = 'display:block;background:#FEE2E2;color:#DC2626;padding:0.75rem 1rem;border-radius:6px;font-size:0.85rem;font-weight:600;margin-top:1rem;';
+        }
+        return;   // deliberately do NOT reload on a partial restore
+      }
       if (msgEl) {
-        msgEl.textContent = `Restored ${count} data set${count !== 1 ? 's' : ''} successfully. Syncing to cloud... Refreshing.`;
+        msgEl.textContent = `Restored ${count} data set${count !== 1 ? 's' : ''} successfully. Refreshing.`;
         msgEl.style.cssText = 'display:block;background:#DCFCE7;color:#15803D;padding:0.75rem 1rem;border-radius:6px;font-size:0.85rem;font-weight:600;margin-top:1rem;';
       }
-      setTimeout(() => location.reload(), 2000);
+      setTimeout(() => location.reload(), 1200);
     } catch(err) {
       if (msgEl) {
         msgEl.textContent = 'Invalid backup file. Please use a file exported from this admin.';

@@ -16,8 +16,40 @@ service cloud.firestore {
     // migration is complete (Phase 2 of the security roadmap).
     // ──────────────────────────────────────────────────────────────────────
 
+    // ── ANTI-WIPE BACKSTOP (added 2026-08-30 after a real data-loss incident) ──
+    //
+    // Each site_data doc holds an ENTIRE collection as one JSON string in `value`,
+    // and every write is a read-modify-write of that whole string. On 2026-08-30
+    // site_data/bookings went from ~60KB to ~400 bytes in a single PATCH, wiping
+    // ~100 real bookings: a client's read timed out, the code treated the failure
+    // as "no data", and one new booking was written over everything.
+    //
+    // Every legitimate write adds, edits, or removes ONE record, so these
+    // documents never shrink materially. This refuses any write that does.
+    //
+    // NOTE ON RULE SEMANTICS: Firestore ORs all matching path rules, so this guard
+    // MUST live inside the single wildcard match below. A separate
+    // `match /site_data/bookings` block would be completely defeated by the
+    // wildcard's own `allow write`.
+    //
+    // ESCAPE HATCH: a deliberate bulk delete or a restore from a SMALLER backup
+    // will be denied. To do one, temporarily comment out the guard in the Firebase
+    // Console (Firestore → Rules → Publish), perform the change, then restore it.
+    // Not applied to blocked_dates/services/specials/courses/manual_events/
+    // pro_order_counter — those legitimately shrink a lot and are easy to re-enter.
+    function notCatastrophicShrink(pct) {
+      return request.resource.data.value is string
+          && (resource == null
+              || !('value' in resource.data)
+              || !(resource.data.value is string)
+              || request.resource.data.value.size() * 100 >= resource.data.value.size() * pct);
+    }
+
     match /site_data/{key} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if !(key in ['bookings', 'clients', 'course_enrollments', 'pro_orders'])
+                   || notCatastrophicShrink(60);
+      allow delete: if false;
     }
 
     // ── Future State (requires Firebase Auth migration) ───────────────────
