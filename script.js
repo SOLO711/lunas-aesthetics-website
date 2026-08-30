@@ -570,6 +570,25 @@ function saveCourseEnrollments(data) {
   _fsSet('course_enrollments', data);
 }
 
+/* ── Booking date rules ── */
+// The salon is in Trinidad (UTC-4, no DST). new Date().toISOString() is UTC, so
+// from 8:00 PM local onward it already reports TOMORROW's date — any date
+// comparison built on it is wrong every evening. Use these for anything that
+// GATES a booking. (Parsing stays on the existing `new Date(d + 'T00:00')` idiom.)
+const SALON_TZ = 'America/Port_of_Spain';
+function todayLocal() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: SALON_TZ }); // YYYY-MM-DD
+}
+// Earliest date a client may book themselves: tomorrow. Same-day must be phoned in.
+// Admin bookings (admin.html #ebDate) bypass this entirely — Chel-C still takes walk-ins.
+function minBookableDate() {
+  const d = new Date(todayLocal() + 'T12:00');  // noon anchor avoids DST edge cases
+  d.setDate(d.getDate() + 1);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+const SAME_DAY_MSG = 'Same-day bookings aren\'t available online — please choose a date from tomorrow onwards, or call us on 1(868) 463-9306.';
+
 /* ── Professional Orders helpers ── */
 function getProOrders() {
   try { return JSON.parse(localStorage.getItem('lunas_pro_orders') || '[]'); }
@@ -899,9 +918,8 @@ function initBooking() {
     if (dateInput?.value) renderTimeSlots(dateInput.value);
   };
 
-  // Min date = today
-  const today = new Date().toISOString().split('T')[0];
-  if (dateInput) dateInput.min = today;
+  // Earliest self-service bookable date is TOMORROW — no same-day online bookings.
+  if (dateInput) dateInput.min = minBookableDate();
 
   // Load from localStorage if admin has customised, otherwise use defaults
   const services = JSON.parse(localStorage.getItem('lunas_services') || 'null') || {
@@ -1110,6 +1128,17 @@ function initBooking() {
     if (!timeWrap) return;
     const requestNotice = document.getElementById('requestNotice');
 
+    // No same-day self-service bookings. Checked before the Monday rule so a
+    // same-day Monday shows the more relevant message.
+    if (dateStr < minBookableDate()) {
+      timeWrap.innerHTML = '<div class="slot-closed-msg">🚫 ' + SAME_DAY_MSG + '</div>';
+      selectedTimeInput.value = '';
+      _bookingType = 'confirmed';
+      if (requestNotice) requestNotice.style.display = 'none';
+      updateSummary();
+      return;
+    }
+
     // Block Mondays (0=Sun, 1=Mon)
     if (new Date(dateStr + 'T00:00').getDay() === 1) {
       timeWrap.innerHTML = '<div class="slot-closed-msg">🚫 We\'re closed on Mondays — please choose another day.</div>';
@@ -1270,9 +1299,12 @@ function initBooking() {
     if (dateInput?.value) renderTimeSlots(dateInput.value);
   });
   dateInput?.addEventListener('change', () => {
-    if (dateInput.value && dateInput.value < today) {
+    // Recomputed on every change — the tab may have been left open across midnight.
+    const minDate = minBookableDate();
+    dateInput.min = minDate;
+    if (dateInput.value && dateInput.value < minDate) {
       dateInput.value = '';
-      if (timeWrap) timeWrap.innerHTML = '<div class="slot-closed-msg">🚫 Please select a date from today onwards.</div>';
+      if (timeWrap) timeWrap.innerHTML = '<div class="slot-closed-msg">🚫 ' + SAME_DAY_MSG + '</div>';
       selectedTimeInput.value = '';
       updateSummary();
       return;
@@ -1340,6 +1372,17 @@ function initBooking() {
     const dateStr = fd.get('bookDate');
     const timeStr = selectedTimeInput.value;
 
+    // Authoritative same-day gate. The change listener can be bypassed entirely
+    // (autofill, a value set by script, a stale page), so this must stand alone.
+    if (!dateStr || dateStr < minBookableDate()) {
+      alert(SAME_DAY_MSG);
+      if (dateInput) { dateInput.min = minBookableDate(); dateInput.value = ''; }
+      selectedTimeInput.value = '';
+      if (timeWrap) timeWrap.innerHTML = '';
+      updateSummary();
+      return;
+    }
+
     // Active specials discount calculation
     let _totalBase = 0;
     selectedServices.forEach(s => {
@@ -1389,6 +1432,19 @@ function initBooking() {
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Confirming…';
+
+    // Recomputed here, NOT reused from page load: the client may have sat on the
+    // consent modal across midnight, turning "tomorrow" into today.
+    if (dateStr < minBookableDate()) {
+      alert('That date is no longer available online (same-day bookings must be made by phone). Please pick a new date, or call 1(868) 463-9306.');
+      if (dateInput) { dateInput.value = ''; dateInput.min = minBookableDate(); }
+      selectedTimeInput.value = '';
+      if (timeWrap) timeWrap.innerHTML = '';
+      updateSummary();
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Confirm Booking ✨';
+      return;
+    }
 
     // Final authoritative re-check, right before writing — closes the window
     // where the client sat on the consent modal while the day got blocked.
