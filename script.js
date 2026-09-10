@@ -468,29 +468,31 @@ if (typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLI
   emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
 }
 
-// FIREBASE SETUP (optional — enables real-time slot availability)
-// Without this, booked slots are only tracked per browser session.
-// 1. console.firebase.google.com → Create project → Build → Firestore Database
-// 2. Project Settings → General → Your apps → Add web app → copy config
-// 3. Firestore Rules: allow read, write: if true;  (for testing — tighten later)
-// ── Firestore REST API (no external SDK needed) ──
-const _FS_BASE = 'https://firestore.googleapis.com/v1/projects/lunas-2305d/databases/(default)/documents/site_data';
-const _FS_KEY  = 'AIzaSyBkakoNS6VyC-n-4voFbkukFA4z5f3Bszg';
-// ═══════════════════════════════════════════════════════════════════
+// ── Data access ──
+// The browser no longer talks to Firestore directly. Every read and write goes
+// through this site's own /api endpoints, which enforce who may see what.
+// Before 2026-09-09 this file held a Firestore URL and API key, and any visitor
+// could fetch the entire customer database (names, phone numbers, emails) or
+// overwrite it. The database is now closed to the public and reachable only
+// through the server.
+const _API = '/api';
+// Keys a signed-out visitor is allowed to read. Everything else needs an admin
+// session and will come back 401 - which _fsRead reports as a failure, so the
+// fail-closed callers behave correctly instead of assuming "no data".
+const _PUBLIC_KEYS = ['services', 'specials', 'courses', 'blocked_dates'];
 
 let _syncReady = false;
 const _syncCallbacks = [];
 function onSyncReady(fn) { _syncReady ? fn() : _syncCallbacks.push(fn); }
 
-// Reads one site_data doc and reports WHY it came back empty.
-//   { ok:false }            → the read FAILED (timeout, network, non-2xx, bad JSON).
+// Reads one document via the API and reports WHY it came back empty.
+//   { ok:false }            → the read FAILED (offline, timeout, 401, 5xx).
 //                             Callers must NEVER treat this as "no data".
-//   { ok:true, data:null }  → the document genuinely does not exist (404) or has no
-//                             `value` field. Safe to treat as a first write.
+//   { ok:true, data:null }  → the document genuinely has no value yet.
 //   { ok:true, data:<any> } → parsed value.
-// On 2026-08-30 a single 5s no-retry read destroyed site_data/bookings: the fetch
-// timed out, the caller read it as "empty", and one booking was PATCHed over ~100
-// real ones. Any read that GATES a write must pass a generous timeout + retries.
+// On 2026-08-30 a single no-retry read destroyed site_data/bookings: the fetch
+// timed out, the caller read it as "empty", and one booking was written over
+// ~100 real ones. Any read that GATES a write must pass a generous timeout.
 async function _fsRead(key, { timeout = 8000, retries = 0 } = {}) {
   let lastErr = 'unknown';
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -498,47 +500,76 @@ async function _fsRead(key, { timeout = 8000, retries = 0 } = {}) {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), timeout);
     try {
-      const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}`, { signal: ctrl.signal });
+      const res = await fetch(`${_API}/data?key=${encodeURIComponent(key)}`, {
+        signal: ctrl.signal,
+        credentials: 'same-origin',
+        headers: { 'Accept': 'application/json' },
+      });
       clearTimeout(tid);
-      if (res.status === 404) return { ok: true, data: null, status: 404 };
       if (!res.ok) { lastErr = 'HTTP ' + res.status; continue; }
-      const doc = await res.json();
-      const sv = doc.fields?.value?.stringValue;
-      if (sv === undefined || sv === '') return { ok: true, data: null, status: 200 };
-      return { ok: true, data: JSON.parse(sv), status: 200 };
-    } catch(e) {
+      const body = await res.json();
+      if (!body || body.ok !== true) { lastErr = 'server reported failure'; continue; }
+      _lastUpdateTimes[key] = body.updateTime || null;
+      return { ok: true, data: body.value === undefined ? null : body.value, status: 200 };
+    } catch (e) {
       clearTimeout(tid);
       lastErr = e.name === 'AbortError' ? ('timeout after ' + timeout + 'ms') : (e.message || 'network error');
     }
   }
-  console.warn('[Firestore] read failed [' + key + ']: ' + lastErr);
+  console.warn('[data] read failed [' + key + ']: ' + lastErr);
   return { ok: false, data: null, error: lastErr };
 }
 
-// Back-compat wrapper: same contract as before (null on both failure and empty).
-// Kept so the read-only call sites need no change. Only the timeout moves 5s → 8s.
+// Tracks the version each key was last read at, so a write can detect that
+// someone else changed the document in between.
+const _lastUpdateTimes = {};
+
+// Back-compat wrapper: null on both failure and empty, as before.
 async function _fsGet(key) { return (await _fsRead(key)).data; }
+
+// Writes one document. Admin session required; the public site creates records
+// through the dedicated /api/public/* endpoints instead.
 async function _fsSet(key, val) {
   try {
-    const res = await fetch(`${_FS_BASE}/${key}?key=${_FS_KEY}&updateMask.fieldPaths=value`, {
-      method: 'PATCH',
+    const res = await fetch(`${_API}/data`, {
+      method: 'PUT',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: { value: { stringValue: JSON.stringify(val) } } }),
+      body: JSON.stringify({ key, value: val, baseUpdateTime: _lastUpdateTimes[key] || null }),
     });
-    return res.ok;
-  } catch(e) { console.warn('[Firestore] write failed [' + key + ']:', e.message); return false; }
+    if (res.ok) return true;
+    let msg = 'HTTP ' + res.status;
+    try { const b = await res.json(); if (b && b.error) msg = b.error; } catch (e) {}
+    console.warn('[data] write failed [' + key + ']: ' + msg);
+    return false;
+  } catch (e) {
+    console.warn('[data] write failed [' + key + ']:', e.message);
+    return false;
+  }
 }
-(async function _syncOnLoad() {
-  const keys = ['services', 'specials', 'courses', 'bookings', 'clients', 'inventory', 'blocked_dates', 'manual_events', 'course_enrollments', 'pro_orders', 'pro_order_counter'];
-  const results = await Promise.allSettled(keys.map(k => _fsGet(k)));
+
+// Pulls the documents this page is allowed to see into localStorage. Public
+// pages get only the non-personal catalogue; the admin panel calls
+// _syncAllAdminData() after signing in to pull the rest.
+async function _syncKeys(keys) {
+  const results = await Promise.allSettled(keys.map(k => _fsRead(k)));
   keys.forEach((k, i) => {
     const r = results[i];
-    if (r.status === 'fulfilled' && r.value !== null) {
-      localStorage.setItem('lunas_' + k, JSON.stringify(r.value));
+    if (r.status === 'fulfilled' && r.value.ok && r.value.data !== null) {
+      localStorage.setItem('lunas_' + k, JSON.stringify(r.value.data));
     }
   });
+}
+
+async function _syncAllAdminData() {
+  await _syncKeys(['services', 'specials', 'courses', 'bookings', 'clients', 'inventory',
+    'blocked_dates', 'manual_events', 'course_enrollments', 'pro_orders', 'pro_order_counter']);
+}
+
+(async function _syncOnLoad() {
+  try { await _syncKeys(_PUBLIC_KEYS); } catch (e) { console.warn('[sync]', e.message); }
   _syncReady = true;
-  _syncCallbacks.forEach(fn => { try { fn(); } catch(e) {} });
+  _syncCallbacks.forEach(fn => { try { fn(); } catch (e) {} });
 })();
 
 /* ── Blocked Dates helpers ── */
@@ -713,44 +744,32 @@ function _occupiedSlots(startTime12hr, durationMinutes) {
 }
 
 async function getBookedSlots(dateStr) {
-  const chelcBooked = [];
-  const timothyBooked = [];
-  const manualBlocked = [];
-
-  function _categorize(bookings) {
-    bookings
-      .filter(b => b.date === dateStr && b.status !== 'cancelled')
-      .forEach(b => {
-        const occupied = _occupiedSlots(b.time, totalDurationMinutes(b.services));
-        if (b.esthetician === 'timothy') timothyBooked.push(...occupied);
-        else chelcBooked.push(...occupied);
-      });
+  // Availability now comes from the server, which returns ONLY which slots are
+  // taken. The browser used to download every booking to work this out, which
+  // meant every visitor received the salon's whole customer list.
+  // `ok` reports whether availability was actually VERIFIED; the write path must
+  // refuse to save when it is false.
+  const empty = { chelcBooked: [], timothyBooked: [], manualBlocked: [], ok: false };
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 12000);
+    const res = await fetch(`${_API}/public/availability?date=${encodeURIComponent(dateStr)}`, {
+      signal: ctrl.signal, headers: { 'Accept': 'application/json' },
+    });
+    clearTimeout(tid);
+    if (!res.ok) return empty;
+    const b = await res.json();
+    if (!b || b.ok !== true) return empty;
+    return {
+      chelcBooked: b.chelcBooked || [],
+      timothyBooked: b.timothyBooked || [],
+      manualBlocked: b.manualBlocked || [],
+      ok: true,
+    };
+  } catch (e) {
+    console.warn('[availability]', e.message);
+    return empty;
   }
-
-  // `ok` reports whether availability was actually VERIFIED against the server.
-  // Display still falls back to the local cache (a stale grid beats a blank one),
-  // but the write path must refuse to save a booking when ok === false.
-  let ok = true;
-
-  const rb = await _fsRead('bookings', { timeout: 12000, retries: 1 });
-  if (rb.ok) {
-    const fresh = rb.data || [];
-    _categorize(fresh);
-    // Self-heal the local cache from a known-good read.
-    try { localStorage.setItem('lunas_bookings', JSON.stringify(fresh)); } catch(e) {}
-  } else {
-    ok = false;
-    _categorize(getDB('lunas_bookings'));
-  }
-
-  const rm = await _fsRead('manual_events', { timeout: 12000, retries: 1 });
-  if (!rm.ok) ok = false;
-  const manualSrc = rm.ok ? (rm.data || []) : getManualEvents();
-  manualBlocked.push(...manualSrc
-    .filter(e => e.date === dateStr && e.startTime && e.endTime)
-    .flatMap(e => _manualBlockedSlots(e.startTime, e.endTime)));
-
-  return { chelcBooked, timothyBooked, manualBlocked, ok };
 }
 
 async function saveBookingRecord(booking) {
@@ -1361,11 +1380,7 @@ function initBooking() {
     }
 
     // Check if client is blocked before checking slot (uses cleaned phone)
-    const _blockedCheck = getDB('lunas_clients').find(c => c.phone === rawPhone);
-    if (_blockedCheck?.blocked) {
-      alert('We\'re unable to process your booking at this time. Please contact us directly on 1(868) 463-9306.');
-      return;
-    }
+    // Blocked-client check now runs on the server; the browser no longer receives the client list.
 
     if (!selectedServices.length) { alert('Please add at least one service.'); return; }
     if (!selectedTimeInput?.value) { alert('Please select a time slot.'); return; }
@@ -1487,8 +1502,8 @@ function initBooking() {
     const _hasFromPrice = selectedServices.some(s => s.price.trim().toLowerCase().startsWith('from'));
     const _combinedName = selectedServices.map(s => s.name).join(' + ');
     const _combinedPrice = (_hasFromPrice ? 'from TTD ' : 'TTD ') + _totalBase.toLocaleString();
+    const _hasFrom2 = selectedServices.some(s => String(s.price || '').trim().toLowerCase().startsWith('from'));
     const booking = {
-      id: Date.now(),
       name: rawName,
       phone: rawPhone,
       email: rawEmail,
@@ -1500,56 +1515,38 @@ function initBooking() {
       date: dateStr,
       time: timeStr,
       notes: rawNotes,
-      status: _bookingType,
       esthetician: _selectedEsthetician,
-      created: new Date().toISOString(),
+      website: (fd.get('website') || ''),
     };
 
-    // Idempotency: if an earlier attempt actually landed and only its response was
-    // lost, a retry must not create a duplicate booking for the same slot.
-    let _dupe = false;
-    const _fsSaved = await _mutateBookings(all => {
-      if (all.some(b => b.phone === booking.phone && b.date === booking.date && b.time === booking.time && b.status !== 'cancelled')) {
-        _dupe = true;
-        return false;
-      }
-      all.push(booking);
-    });
+    // The booking is created by the server, which re-checks every rule (same-day,
+    // Mondays, blocked dates, blocked clients, double-booking) against the freshest
+    // data and appends it safely. The browser cannot be trusted with any of that,
+    // and it no longer needs the customer list to do the blocked-client check.
+    let _saved = null, _saveErr = null;
+    try {
+      const _r = await fetch(`${_API}/public/book`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(booking),
+      });
+      const _b = await _r.json().catch(() => null);
+      if (_r.ok && _b && _b.ok) _saved = _b.booking;
+      else _saveErr = (_b && _b.error) || "We couldn't confirm your booking with our server — nothing was saved. Please try again, or call us on 1(868) 463-9306.";
+    } catch (e) {
+      _saveErr = "We couldn't reach our server — nothing was saved. Please check your connection and try again, or call us on 1(868) 463-9306.";
+    }
 
     // Fail CLOSED: never show a success panel or send a confirmation email for a
-    // booking the server did not confirm. Before 2026-08-30 this path carried on
-    // regardless and told the client their booking was "saved locally" — it wasn't.
-    if (!_fsSaved) {
-      alert('We couldn\'t confirm your booking with our server — nothing was saved. Please check your connection and press Confirm again, or call us on 1(868) 463-9306.');
+    // booking the server did not confirm.
+    if (!_saved) {
+      alert(_saveErr);
       submitBtn.disabled = false;
       submitBtn.textContent = 'Confirm Booking ✨';
       return;
     }
-
-    // Auto-save client record
-    const _clientsOk = await _mutateClients(clients => {
-      const existingIdx = clients.findIndex(c => c.phone === booking.phone);
-      if (existingIdx >= 0) {
-        clients[existingIdx].lastVisit = booking.date;
-        clients[existingIdx].totalVisits = (clients[existingIdx].totalVisits || 0) + 1;
-        if (!clients[existingIdx].email && booking.email) clients[existingIdx].email = booking.email;
-      } else {
-        clients.push({
-          id: Date.now() + 1,
-          name: booking.name,
-          phone: booking.phone,
-          email: booking.email || '',
-          dob: '',
-          notes: '',
-          lastVisit: booking.date,
-          totalVisits: 1,
-          created: new Date().toISOString(),
-        });
-      }
-    });
-    // The booking itself is saved; a failed client-record update is recoverable
-    // (the record is derivable from the booking) but must not pass silently.
-    if (!_clientsOk) console.warn('[Booking] client record was not updated for', booking.phone);
+    // Use the server's record from here on (it owns the id, status and timestamp).
+    Object.assign(booking, _saved);
 
     const formattedDate = new Date(dateStr + 'T00:00').toLocaleDateString('en-TT', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -1917,8 +1914,8 @@ function initProShop() {
     if (!btn) return;
     const p = PRO_PRODUCTS.find(x => x.id == btn.dataset.id);
     if (!p) return;
-    const ex = proCart.find(i => i.name === p.name);
-    if (ex) ex.qty++; else proCart.push({ name: p.name, price: p.price, qty: 1 });
+    const ex = proCart.find(i => (i.id != null && i.id === p.id) || i.name === p.name);
+    if (ex) { ex.qty++; if (ex.id == null) ex.id = p.id; } else proCart.push({ id: p.id, name: p.name, price: p.price, qty: 1 });
     saveProCart(); renderProCart(); openProCart();
   });
 
@@ -2024,32 +2021,33 @@ function initProShop() {
     const total = subtotal + shipping;
 
     try {
-      const invoiceId = await nextProInvoiceId();
-      if (!invoiceId) {
-        alert('We couldn\'t reach our server to raise your invoice — nothing was ordered. Please check your connection and try again, or call us on 1(868) 463-9306.');
+      // The server prices the order from its own catalogue, allocates the invoice
+      // number atomically and stores the record. The browser is not trusted with
+      // prices, totals or invoice numbering.
+      let order = null, orderErr = null;
+      try {
+        const _r = await fetch(`${_API}/public/order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: pcName, email: pcEmail, phone: pcPhone,
+            deliveryMethod, island, address: pcAddress,
+            items: proCart.map(i => ({ id: i.id, name: i.name, qty: i.qty })),
+          }),
+        });
+        const _b = await _r.json().catch(() => null);
+        if (_r.ok && _b && _b.ok) order = _b.order;
+        else orderErr = (_b && _b.error) || "We couldn't confirm your order with our server — nothing was saved. Please try again, or call us on 1(868) 463-9306.";
+      } catch (err) {
+        orderErr = "We couldn't reach our server — nothing was ordered. Please check your connection and try again, or call us on 1(868) 463-9306.";
+      }
+      if (!order) {
+        alert(orderErr);
         submitBtn.disabled = false;
         submitBtn.textContent = 'Send Order ✉️';
-        return;   // form is intentionally NOT reset, so they can just retry
+        return;   // form intentionally NOT reset, so they can retry
       }
-      const order = {
-        id: Date.now(),
-        invoiceId,
-        name: pcName, email: pcEmail, phone: pcPhone,
-        deliveryMethod,
-        island:  deliveryMethod === 'delivery' ? island : null,
-        address: deliveryMethod === 'delivery' ? pcAddress : null,
-        items: proCart.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
-        subtotal, shipping, total,
-        status: 'pending',
-        created: new Date().toISOString(),
-      };
-      const _orderSaved = await saveProOrderRecord(order);
-      if (!_orderSaved) {
-        alert('We couldn\'t confirm your order with our server — nothing was saved. Please check your connection and try again, or call us on 1(868) 463-9306.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Send Order ✉️';
-        return;   // abort BEFORE any invoice email is sent
-      }
+
       try { await sendProBusinessEmail(order); } catch (err) { console.error('Pro order business email failed:', err); }
       try { await sendProClientEmail(order); }   catch (err) { console.error('Pro order client email failed:', err); }
 
@@ -2135,25 +2133,19 @@ if (contactForm) {
     }
     // If this is a course enrolment, save structured record to Firestore
     if (fd.get('subject') === 'Course Enrollment') {
-      const courseName = fd.get('courseRef') || 'Unknown Course';
-      const coursesList = JSON.parse(localStorage.getItem('lunas_courses') || '[]');
-      const matchedCourse = coursesList.find(c => c.name === courseName);
-      const amount = matchedCourse ? parseTTD(matchedCourse.price) : 0;
-      const enrollment = {
-        id: 'ce_' + Date.now(),
-        name: cName,
-        phone: cPhone,
-        email: cEmail,
-        course: courseName,
-        amount,
-        enrolledDate: new Date().toISOString().split('T')[0],
-        status: 'pending',
-        notes: '',
-        source: 'website',
-      };
-      const existing = getCourseEnrollments();
-      existing.unshift(enrollment);
-      saveCourseEnrollments(existing);
+      // Recorded by the server, which looks up the course fee itself. The browser
+      // no longer needs (or receives) the enrolments list.
+      try {
+        await fetch(`${_API}/public/enroll`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: cName, phone: cPhone, email: cEmail,
+            course: fd.get('courseRef') || 'Unknown Course',
+            website: fd.get('website') || '',
+          }),
+        });
+      } catch (err) { console.error('Course enrolment could not be recorded:', err); }
     }
 
     const ok = document.getElementById('contactSuccess');
@@ -2165,12 +2157,8 @@ if (contactForm) {
 }
 
 /* ── Shared auth helpers (used by login + settings) ── */
-const _DEFAULT_HASH = 'afc27beb96af151ae8b94c016c882a583016eb42c116276bbbb03b7bb55e7cde';
-function getAdminHash() { return localStorage.getItem('lunas_pw_hash') || _DEFAULT_HASH; }
-async function hashPw(pw) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// Admin password verification moved to the server (/api/admin/login). The hash
+// used to be shipped in this file, where anyone could read and attack it offline.
 
 /* ── Admin Dashboard ── */
 function initAdmin() {
@@ -2181,23 +2169,11 @@ function initAdmin() {
   const LOCKOUT_MS   = 15 * 60 * 1000;
   const SESSION_MS   = 4 * 60 * 60 * 1000;
 
-  function getLockout() { return JSON.parse(sessionStorage.getItem('lunas_lockout') || 'null'); }
-  function isLocked() {
-    const l = getLockout();
-    return l && Date.now() < l.until;
-  }
-  function recordFailure() {
-    const l = getLockout() || { count: 0, until: 0 };
-    l.count++;
-    if (l.count >= MAX_ATTEMPTS) { l.until = Date.now() + LOCKOUT_MS; l.count = 0; }
-    sessionStorage.setItem('lunas_lockout', JSON.stringify(l));
-  }
-  function clearLockout() { sessionStorage.removeItem('lunas_lockout'); }
+  // Login throttling is enforced by the server now (per-IP, in /api/admin/login).
 
   function doLogout() {
-    sessionStorage.removeItem('lunas_admin');
-    sessionStorage.removeItem('lunas_admin_ts');
     if (window._adminTimeoutId) clearTimeout(window._adminTimeoutId);
+    fetch(`${_API}/admin/logout`, { method: 'POST', credentials: 'same-origin' }).catch(() => {});
     loginOverlay.style.display = 'flex';
   }
   function startSessionTimer() {
@@ -2205,50 +2181,60 @@ function initAdmin() {
     window._adminTimeoutId = setTimeout(doLogout, SESSION_MS);
   }
 
-  const authed = sessionStorage.getItem('lunas_admin') === '1';
-  if (authed) {
-    const ts = parseInt(sessionStorage.getItem('lunas_admin_ts') || '0', 10);
-    if (Date.now() - ts > SESSION_MS) {
-      doLogout();
-    } else {
+  // The admin session is now issued and verified by the server. Previously this
+  // was a sessionStorage flag any visitor could set in devtools, and the password
+  // hash was shipped inside this file where anyone could attack it offline.
+  let authed = false;
+  async function refreshSession() {
+    try {
+      const r = await fetch(`${_API}/admin/session`, { credentials: 'same-origin' });
+      const b = await r.json().catch(() => null);
+      authed = !!(b && b.authed);
+    } catch (e) { authed = false; }
+    return authed;
+  }
+
+  refreshSession().then(ok => {
+    if (ok) {
       loginOverlay.style.display = 'none';
       startSessionTimer();
+      loadAdminData();
+    } else {
+      loginOverlay.style.display = 'flex';
     }
-  } else {
-    loginOverlay.style.display = 'flex';
-  }
+  });
 
   document.getElementById('loginForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const errEl = document.getElementById('loginErr');
-    if (isLocked()) {
-      const l = getLockout();
-      const mins = Math.ceil((l.until - Date.now()) / 60000);
-      errEl.textContent = `Too many attempts. Try again in ${mins} minute${mins !== 1 ? 's' : ''}.`;
-      errEl.style.display = 'block';
-      return;
-    }
+    const btn = e.target.querySelector('button[type=submit]');
     const pw = document.getElementById('adminPassword')?.value || '';
-    const hash = await hashPw(pw);
-    if (hash === getAdminHash()) {
-      clearLockout();
-      sessionStorage.setItem('lunas_admin', '1');
-      sessionStorage.setItem('lunas_admin_ts', Date.now().toString());
-      loginOverlay.style.display = 'none';
-      errEl.style.display = 'none';
-      errEl.textContent = 'Incorrect password. Please try again.';
-      startSessionTimer();
-      loadAdminData();
-    } else {
-      recordFailure();
-      if (isLocked()) {
-        errEl.textContent = `Too many failed attempts. Locked for 15 minutes. To reset early, close this browser tab completely and reopen it.`;
+    if (btn) { btn.disabled = true; }
+    try {
+      const r = await fetch(`${_API}/admin/login`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw }),
+      });
+      const b = await r.json().catch(() => null);
+      if (r.ok && b && b.ok) {
+        authed = true;
+        const pwEl = document.getElementById('adminPassword');
+        if (pwEl) pwEl.value = '';
+        loginOverlay.style.display = 'none';
+        errEl.style.display = 'none';
+        startSessionTimer();
+        loadAdminData();
       } else {
-        const l = getLockout() || { count: 0 };
-        const left = MAX_ATTEMPTS - l.count;
-        errEl.textContent = `Incorrect password. ${left} attempt${left !== 1 ? 's' : ''} remaining.`;
+        errEl.textContent = (b && b.error) || 'Incorrect password. Please try again.';
+        errEl.style.display = 'block';
       }
+    } catch (err) {
+      errEl.textContent = 'Could not reach the server. Check your connection and try again.';
       errEl.style.display = 'block';
+    } finally {
+      if (btn) btn.disabled = false;
     }
   });
 
@@ -2301,7 +2287,7 @@ function initAdmin() {
     });
   });
 
-  if (authed) setTimeout(loadAdminData, 0);
+  // initial data load is triggered by refreshSession() above
 }
 
 function getDB(key) { return JSON.parse(localStorage.getItem(key) || '[]'); }
@@ -2336,6 +2322,9 @@ function loadAdminData() {
     renderSpecials();
     renderCourseEnrollments();
   };
+  // Admin-only documents are not fetched on page load any more - they are
+  // pulled here, once a valid admin session exists.
+  _syncAllAdminData().then(_renderAll).catch(e => console.warn('[admin sync]', e.message));
   _renderAll();
   initSettings();
   initBlockedDates();
@@ -4686,7 +4675,7 @@ function initServicesMgr() {
   document.getElementById('resetServicesBtn').onclick = () => {
     if (!confirm('Reset all services to defaults? This cannot be undone.')) return;
     localStorage.removeItem('lunas_services');
-    fetch(`${_FS_BASE}/services?key=${_FS_KEY}`, { method: 'DELETE' }).catch(() => {});
+    _fsSet('services', null);   // clears the stored menu so the built-in defaults apply again
     renderServices();
   };
 
@@ -5260,9 +5249,16 @@ function initSettings() {
       }
       if (newPw !== confirm) { showMsg('New passwords do not match.', false); return; }
       if (newPw.length < 8)  { showMsg('New password must be at least 8 characters.', false); return; }
-      const currentHash = await hashPw(current);
-      if (currentHash !== getAdminHash()) { showMsg('Current password is incorrect.', false); return; }
-      localStorage.setItem('lunas_pw_hash', await hashPw(newPw));
+      try {
+        const r = await fetch(`${_API}/admin/password`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ current, next: newPw }),
+        });
+        const b = await r.json().catch(() => null);
+        if (!r.ok || !b || !b.ok) { showMsg((b && b.error) || 'Could not update the password.', false); return; }
+      } catch (err) { showMsg('Could not reach the server. Try again.', false); return; }
       showMsg('Password updated successfully!', true);
       pwForm.reset();
       setTimeout(() => { msgEl.style.display = 'none'; }, 4000);
