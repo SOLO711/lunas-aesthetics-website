@@ -225,6 +225,23 @@ export async function fsMutate(env, key, mutator, { emptyValue = [], attempts = 
   return { ok: false, reason: 'conflict' };
 }
 
+/* ─────────────────────────── abuse limiting ─────────────────────────── */
+
+// Per-IP limiter for the public write endpoints. Held in the isolate, so it is
+// a speed bump rather than a hard guarantee, but it stops one caller hammering
+// bookings or orders in a loop. The booking form also enforces its own cooldown.
+const _hits = new Map();
+export function rateLimited(request, bucket, max = 8, windowMs = 10 * 60 * 1000) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const key = bucket + ':' + ip;
+  const now = Date.now();
+  const rec = _hits.get(key);
+  if (!rec || now > rec.reset) { _hits.set(key, { count: 1, reset: now + windowMs }); return false; }
+  rec.count++;
+  if (_hits.size > 5000) _hits.clear();   // never grow without bound
+  return rec.count > max;
+}
+
 /* ─────────────────────────── validation ─────────────────────────── */
 
 export const clean = (s, max = 300) => String(s == null ? '' : s).trim().slice(0, max);

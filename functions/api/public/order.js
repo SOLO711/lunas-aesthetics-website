@@ -2,13 +2,15 @@
 // Places a Professionals-shop order. Prices and shipping are recalculated here
 // from the server's own price list, so a tampered browser cannot set its own
 // totals, and the invoice number is allocated atomically.
-import { fsRead, fsMutate, fsWrite, json, bad, clean, isEmail, isPhone } from '../../_lib.js';
+import { fsRead, fsMutate, fsWrite, json, bad, clean, isEmail, isPhone , rateLimited } from '../../_lib.js';
 import { PRO_PRICES } from '../../_proPrices.js';
 
 const SHIP_TRINIDAD = 50;
 const SHIP_TOBAGO = 70;
 
 export async function onRequestPost({ request, env }) {
+  if (rateLimited(request, 'order', 6)) return bad('Too many requests. Please wait a few minutes and try again.', 429);
+
   let body;
   try { body = await request.json(); } catch { return bad('Malformed request'); }
 

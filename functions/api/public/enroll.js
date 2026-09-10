@@ -1,7 +1,7 @@
 // POST /api/public/enroll
 // Records a course enrolment from the contact form. The fee is looked up from
 // the course catalogue server side rather than trusted from the browser.
-import { fsRead, fsMutate, json, bad, clean, isEmail, isPhone } from '../../_lib.js';
+import { fsRead, fsMutate, json, bad, clean, isEmail, isPhone , rateLimited } from '../../_lib.js';
 
 function parseTTD(str) {
   const n = parseFloat(String(str == null ? '' : str).replace(/[^0-9.]/g, ''));
@@ -9,6 +9,8 @@ function parseTTD(str) {
 }
 
 export async function onRequestPost({ request, env }) {
+  if (rateLimited(request, 'enroll', 6)) return bad('Too many requests. Please wait a few minutes and try again.', 429);
+
   let body;
   try { body = await request.json(); } catch { return bad('Malformed request'); }
 

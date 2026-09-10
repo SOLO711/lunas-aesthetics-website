@@ -2,10 +2,12 @@
 // Creates a booking. Every rule is enforced here, on the server, because the
 // browser copy can be edited by anyone. The booking record itself is unchanged
 // in shape, so the admin panel and all reporting keep working exactly as before.
-import { fsRead, fsMutate, json, bad, clean, isDateStr, isEmail, isPhone, minBookableDate } from '../../_lib.js';
+import { fsRead, fsMutate, json, bad, clean, isDateStr, isEmail, isPhone, minBookableDate , rateLimited } from '../../_lib.js';
 import { computeAvailability, isDateBlocked, isSlotBlocked, isMonday, totalDurationMinutes, occupiedSlots } from '../../_slots.js';
 
 export async function onRequestPost({ request, env }) {
+  if (rateLimited(request, 'book', 8)) return bad('Too many requests. Please wait a few minutes and try again.', 429);
+
   let body;
   try { body = await request.json(); } catch { return bad('Malformed request'); }
 
