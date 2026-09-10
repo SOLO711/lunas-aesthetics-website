@@ -119,13 +119,18 @@ let _lastAuthError = null;
 
 async function getIdToken(env) {
   if (!env.FB_SERVER_EMAIL || !env.FB_SERVER_PASSWORD || !env.FB_API_KEY) return null;
+  // Dashboard fields pick up stray spaces very easily. Whitespace is never valid
+  // in an email address or an API key, so trim those; the password is passed
+  // through untouched in case a space is genuinely part of it.
+  const email = String(env.FB_SERVER_EMAIL).trim();
+  const apiKey = String(env.FB_API_KEY).trim();
   if (_tokenCache.token && Date.now() < _tokenCache.exp - 60000) return _tokenCache.token;
   const res = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${env.FB_API_KEY}`,
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: env.FB_SERVER_EMAIL, password: env.FB_SERVER_PASSWORD, returnSecureToken: true }),
+      body: JSON.stringify({ email, password: env.FB_SERVER_PASSWORD, returnSecureToken: true }),
     }
   );
   if (!res.ok) {
