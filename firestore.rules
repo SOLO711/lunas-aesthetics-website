@@ -24,7 +24,7 @@ service cloud.firestore {
 
     function isServer() {
       return request.auth != null
-          && request.auth.uid == 'REPLACE_WITH_SERVER_UID';
+          && request.auth.uid == '8ybQI1VnCjNWlBuOHIhnHg6wYE42';
     }
 
     // Every site_data document: server only, both directions.
