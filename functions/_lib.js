@@ -114,7 +114,7 @@ export async function requireAdmin(request, env) {
 
 // The server authenticates to Firestore as a dedicated Firebase Auth user, so
 // security rules can deny everyone else. Token is cached per isolate.
-let _tokenCache = { token: null, exp: 0 };
+let _tokenCache = { token: null, uid: null, exp: 0 };
 
 async function getIdToken(env) {
   if (!env.FB_SERVER_EMAIL || !env.FB_SERVER_PASSWORD || !env.FB_API_KEY) return null;
@@ -132,7 +132,7 @@ async function getIdToken(env) {
     return null;
   }
   const data = await res.json();
-  _tokenCache = { token: data.idToken, exp: Date.now() + (Number(data.expiresIn || 3600) * 1000) };
+  _tokenCache = { token: data.idToken, uid: data.localId, exp: Date.now() + (Number(data.expiresIn || 3600) * 1000) };
   return _tokenCache.token;
 }
 
@@ -262,4 +262,18 @@ export function minBookableDate() {
   d.setDate(d.getDate() + 1);
   const p = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// Reports whether the server can sign in to the database as the service account.
+// Used by /api/admin/selftest to confirm configuration BEFORE the rules are
+// locked down - once they are, a wrong password means an unreachable database.
+export async function serverIdentity(env) {
+  const configured = !!(env.FB_SERVER_EMAIL && env.FB_SERVER_PASSWORD && env.FB_API_KEY);
+  if (!configured) {
+    return { configured: false, signedIn: false, uid: null,
+             detail: 'FB_SERVER_EMAIL / FB_SERVER_PASSWORD / FB_API_KEY are not all set on this deployment.' };
+  }
+  const token = await getIdToken(env);
+  if (!token) return { configured: true, signedIn: false, uid: null, detail: 'Credentials are set but sign-in was rejected.' };
+  return { configured: true, signedIn: true, uid: _tokenCache.uid || null, detail: 'Signed in successfully.' };
 }
