@@ -53,7 +53,18 @@ export async function onRequestPost({ request, env }) {
 
   const courses = await fsRead(env, 'courses');
   if (!courses.ok) return json({ ok: false, error: 'Unable to record your enrolment right now — please try again.' }, 503);
-  const matched = (courses.data || []).find(c => c && c.name === course);
+  // Match on the exact name first, then fall back to a normalised comparison.
+  // Course names are typed by hand in the admin panel and used verbatim in the
+  // ?course= links, so a stray trailing space or a hyphen typed where an em dash
+  // belongs would otherwise silently record the enrolment with no fee at all.
+  const norm = t => String(t || '')
+    .replace(/[‐-―−]/g, '-')   // any dash-like character -> hyphen
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  const list = courses.data || [];
+  const matched = list.find(c => c && c.name === course)
+               || list.find(c => c && norm(c.name) === norm(course));
 
   const priced = matched
     ? priceEnrolment(matched.price)
