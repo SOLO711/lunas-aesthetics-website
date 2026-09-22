@@ -4156,7 +4156,17 @@ initCoursesMgr();
   const mgtList = document.getElementById('mgtList');
   if (!mgtList) return;
 
-  const DEFAULT_IDS = new Set([1,2,3,4,5,6,7,8,9,10]);
+  // Courses laid out by hand in courses.html. 11 is the Bahamas showcase section -
+  // listing it here keeps renderExtras() from drawing a second, plainer copy of it.
+  const DEFAULT_IDS = new Set([1,2,3,4,5,6,7,8,9,10,11]);
+  // Course prices are free text. Most are TTD and written without the code, but
+  // some courses are priced in another currency (the Bahamas course is USD), so
+  // only prepend TTD when the price does not already name one.
+  const priceLabel = p => {
+    const t = String(p == null ? '' : p).trim();
+    if (!t) return '';
+    return /^(TTD|USD|US\$|\$|BSD|EUR|GBP)/i.test(t) ? t : 'TTD ' + t;
+  };
   const LEVEL_BADGE = { Beginner:'level-beginner', Intermediate:'level-intermediate', Advanced:'level-advanced', Bundle:'level-bundle', 'Master Bundle':'level-master', 'Signature Program':'level-signature' };
 
   function getCourses() {
@@ -4177,7 +4187,7 @@ initCoursesMgr();
   function renderList() {
     const courses = getCourses().filter(c => c.status !== 'inactive');
     mgtList.innerHTML = courses.map((c, i) => {
-      const priceStr = c.price ? (String(c.price).startsWith('TTD') ? c.price : 'TTD ' + c.price) : '';
+      const priceStr = priceLabel(c.price);
       return `<div class="mgt-row">
         <span class="mgt-row-num">${String(i+1).padStart(2,'0')}</span>
         <span class="mgt-row-name">${c.name}</span>
@@ -4195,7 +4205,7 @@ initCoursesMgr();
     if (!extras.length) { container.style.display = 'none'; return; }
     container.style.display = '';
     grid.innerHTML = extras.map((c, i) => {
-      const priceStr = c.price ? (String(c.price).startsWith('TTD') ? c.price : 'TTD ' + c.price) : '';
+      const priceStr = priceLabel(c.price);
       const badge = LEVEL_BADGE[c.level] || 'level-beginner';
       const num = String(11 + i).padStart(2, '0');
       const imgSection = c.image
@@ -4209,7 +4219,7 @@ initCoursesMgr();
             <span class="course-level-badge ${badge}">${c.level || 'Course'}</span>
           </div>`;
       const depositHtml = c.deposit
-        ? `<div class="course-deposit-note">Deposit: ${String(c.deposit).startsWith('TTD') ? c.deposit : 'TTD ' + c.deposit}</div>`
+        ? `<div class="course-deposit-note">Deposit: ${priceLabel(c.deposit)}</div>`
         : '';
       const durationHtml = c.duration
         ? `<div class="course-meta"><span class="course-meta-tag">${c.duration}</span></div>`
