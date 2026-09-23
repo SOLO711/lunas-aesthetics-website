@@ -53,5 +53,5 @@ export async function onRequestPut({ request, env }) {
     if (w.conflict) return bad('Someone else changed this a moment ago. Reload and try again.', 409);
     return json({ ok: false, error: 'write-failed' }, 503);
   }
-  return json({ ok: true });
+  return json({ ok: true, updateTime: w.updateTime || null });
 }

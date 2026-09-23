@@ -529,7 +529,15 @@ async function _fsGet(key) { return (await _fsRead(key)).data; }
 
 // Writes one document. Admin session required; the public site creates records
 // through the dedicated /api/public/* endpoints instead.
-async function _fsSet(key, val) {
+// Writes one document. Admin session required; the public site creates records
+// through the dedicated /api/public/* endpoints instead.
+//
+// Writes carry the version the caller last saw, so a concurrent edit conflicts
+// instead of silently clobbering. Two things make that safe to rely on:
+// the stamp is refreshed from the write's own response (otherwise a second
+// write would still be quoting the version from the last READ and would be
+// refused), and a genuine conflict is retried once against fresh data.
+async function _fsSet(key, val, _retried) {
   try {
     const res = await fetch(`${_API}/data`, {
       method: 'PUT',
@@ -537,9 +545,23 @@ async function _fsSet(key, val) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ key, value: val, baseUpdateTime: _lastUpdateTimes[key] || null }),
     });
-    if (res.ok) return true;
+    if (res.ok) {
+      try {
+        const b = await res.json();
+        _lastUpdateTimes[key] = (b && b.updateTime) || null;
+      } catch (e) { _lastUpdateTimes[key] = null; }
+      return true;
+    }
     let msg = 'HTTP ' + res.status;
     try { const b = await res.json(); if (b && b.error) msg = b.error; } catch (e) {}
+
+    // Someone (or something) changed the document since we last read it. Pick up
+    // the current version and try once more before giving up.
+    if (res.status === 409 && !_retried) {
+      console.warn('[data] write conflicted [' + key + '] — refreshing and retrying');
+      await _fsRead(key);
+      return _fsSet(key, val, true);
+    }
     console.warn('[data] write failed [' + key + ']: ' + msg);
     return false;
   } catch (e) {
@@ -661,9 +683,15 @@ function getManualEvents() {
   try { return JSON.parse(localStorage.getItem('lunas_manual_events') || '[]'); }
   catch(e) { return []; }
 }
-function saveManualEvents(data) {
-  localStorage.setItem('lunas_manual_events', JSON.stringify(data));
-  _fsSet('manual_events', data);
+// Saves calendar entries. The local copy is only updated once the server has
+// accepted the write, and the result is returned so callers can tell the user
+// when it did not save. Previously this wrote locally and fired the server call
+// without checking it, so a refused write looked like a successful save until
+// the next page load replaced it with the server's copy.
+async function saveManualEvents(data) {
+  const ok = await _fsSet('manual_events', data);
+  if (ok) localStorage.setItem('lunas_manual_events', JSON.stringify(data));
+  return ok;
 }
 
 function _to12hr(t24) {
@@ -2669,7 +2697,7 @@ window.showAddEntryForm = dateStr => {
   document.getElementById('addEntryTitle')?.focus();
 };
 
-window.saveManualEntry = dateStr => {
+window.saveManualEntry = async dateStr => {
   const title = document.getElementById('addEntryTitle')?.value.trim();
   const startTime = document.getElementById('addEntryStart')?.value;
   const endTime = document.getElementById('addEntryEnd')?.value;
@@ -2678,14 +2706,20 @@ window.saveManualEntry = dateStr => {
   if (!endTime) { alert('Please enter an end time.'); return; }
   const events = getManualEvents();
   events.push({ id: Date.now().toString(), date: dateStr, title, startTime, endTime });
-  saveManualEvents(events);
+  if (!await saveManualEvents(events)) {
+    alert('⚠️ Could not save to the server — check your connection and try again. This entry was NOT saved.');
+    return;
+  }
   renderCalendar();
   selectCalDay(dateStr);
 };
 
-window.deleteManualEvent = (id, dateStr) => {
+window.deleteManualEvent = async (id, dateStr) => {
   if (!confirm('Remove this entry?')) return;
-  saveManualEvents(getManualEvents().filter(e => e.id !== id));
+  if (!await saveManualEvents(getManualEvents().filter(e => e.id !== id))) {
+    alert('⚠️ Could not save to the server — check your connection and try again. This entry was NOT removed.');
+    return;
+  }
   renderCalendar();
   selectCalDay(dateStr);
 };
@@ -2718,7 +2752,7 @@ window.editManualEvent = (id, dateStr) => {
   document.getElementById(`editEntryTitle-${id}`)?.focus();
 };
 
-window.saveEditManualEvent = (id, dateStr) => {
+window.saveEditManualEvent = async (id, dateStr) => {
   const title = document.getElementById(`editEntryTitle-${id}`)?.value.trim();
   const startTime = document.getElementById(`editEntryStart-${id}`)?.value;
   const endTime = document.getElementById(`editEntryEnd-${id}`)?.value;
@@ -2729,7 +2763,10 @@ window.saveEditManualEvent = (id, dateStr) => {
   const idx = events.findIndex(e => e.id === id);
   if (idx === -1) return;
   events[idx] = { ...events[idx], title, startTime, endTime };
-  saveManualEvents(events);
+  if (!await saveManualEvents(events)) {
+    alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.');
+    return;
+  }
   renderCalendar();
   selectCalDay(dateStr);
 };

@@ -197,7 +197,14 @@ export async function fsWrite(env, key, value, baseUpdateTime = null) {
       body: JSON.stringify({ fields: { value: { stringValue: JSON.stringify(value) } } }),
       signal: AbortSignal.timeout(15000),
     });
-    if (res.ok) return { ok: true };
+    if (res.ok) {
+      // Hand back the new version stamp. Without it a caller that keeps writing
+      // would still be holding the stamp from its last READ, and every write
+      // after the first would be refused as a conflict.
+      let updateTime = null;
+      try { updateTime = (await res.json()).updateTime || null; } catch (e) {}
+      return { ok: true, updateTime };
+    }
     const txt = (await res.text()).slice(0, 300);
     const conflict = res.status === 409 || /FAILED_PRECONDITION/i.test(txt);
     console.error('[fs] write failed', key, res.status, txt);
