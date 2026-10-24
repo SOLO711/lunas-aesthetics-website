@@ -3855,3 +3855,180 @@ tr.client-blocked td { background: #FFF1F1; }
   .bh-invest-split { text-align: left; }
   .bh-cta .btn { flex: 1 1 100%; }
 }
+
+/* ── Lunas Holiday Collection (services.html) ────────────────────────────
+   Scoped under .hc-* so it cannot affect the ordinary pricing rows. Built
+   from the existing brand tokens rather than a new palette, so it reads as
+   a seasonal edition of the site rather than a separate thing. */
+.hc-wrap {
+  position: relative;
+  margin: 0 0 3.5rem;
+  padding: 2.5rem 2rem 2rem;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--gold-dark);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(130% 80% at 0% 0%, var(--gold-light) 0%, transparent 60%),
+    linear-gradient(165deg, var(--pink-bg) 0%, var(--white) 55%, var(--gold-light) 100%);
+}
+
+.hc-header { text-align: center; margin-bottom: 2rem; }
+.hc-eyebrow {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.24em;
+  text-transform: uppercase; color: var(--gold-dark); margin-bottom: 0.7rem;
+}
+.hc-title {
+  font-family: var(--font-heading);
+  font-size: clamp(1.75rem, 4.2vw, 2.7rem);
+  line-height: 1.12; color: var(--dark); font-weight: 700;
+  letter-spacing: -0.01em; margin: 0 0 0.55rem;
+}
+.hc-title em {
+  font-style: italic; font-weight: 400; color: var(--pink-dark);
+}
+.hc-tagline {
+  font-size: 0.76rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-light);
+}
+
+/* flyer + intro */
+.hc-top {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) 1.35fr;
+  gap: 2rem; align-items: start; margin-bottom: 2.25rem;
+}
+.hc-media {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; background: var(--white);
+}
+.hc-media img { display: block; width: 100%; height: auto; }
+
+.hc-intro { min-width: 0; }
+.hc-lede { margin: 0 0 1.25rem; font-size: 0.95rem; line-height: 1.7; color: var(--text); }
+
+/* the deposit rule - deliberately the loudest thing in the block */
+.hc-deposit {
+  display: flex; align-items: center; gap: 1rem;
+  background: linear-gradient(135deg, var(--dark) 0%, #3D2000 60%, var(--pink-dark) 100%);
+  border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 1.25rem;
+}
+.hc-deposit-badge {
+  flex: 0 0 auto; font-family: var(--font-heading); font-size: 1.35rem;
+  color: var(--gold); line-height: 1; padding-right: 1rem;
+  border-right: 1px solid rgba(255,255,255,0.22);
+}
+.hc-deposit-body { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+.hc-deposit-body strong {
+  color: var(--white); font-size: 0.9rem; font-weight: 700; line-height: 1.35;
+}
+.hc-deposit-body span { color: rgba(255,255,255,0.8); font-size: 0.82rem; line-height: 1.55; }
+.hc-deposit-body span strong { color: var(--gold); font-size: inherit; }
+
+.hc-points { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; }
+.hc-points li {
+  position: relative; padding-left: 1.05rem;
+  font-size: 0.8rem; color: var(--text-light); letter-spacing: 0.02em;
+}
+.hc-points li::before {
+  content: ''; position: absolute; left: 0; top: 0.42rem;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--gold);
+}
+
+/* package cards - .pricing-grid keeps them in sync with the admin catalogue */
+.hc-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem; margin-bottom: 1.75rem;
+}
+.hc-card {
+  display: flex; flex-direction: column;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.4rem 1.3rem;
+  cursor: pointer; transition: var(--transition);
+}
+.hc-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+.hc-card-tag {
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--gold-dark); margin-bottom: 0.5rem;
+}
+.hc-card-name {
+  font-family: var(--font-heading); font-size: 1.18rem; color: var(--dark);
+  line-height: 1.25; margin-bottom: 0.4rem;
+}
+.hc-card-sub {
+  font-size: 0.8rem; color: var(--text-light); font-style: italic;
+  line-height: 1.5; margin-bottom: 1rem;
+  padding-bottom: 0.9rem; border-bottom: 1px solid var(--border);
+}
+.hc-card-list { list-style: none; margin: 0 0 1.1rem; padding: 0; flex: 1; }
+.hc-card-list li {
+  position: relative; padding: 0.38rem 0 0.38rem 1.15rem;
+  font-size: 0.86rem; line-height: 1.45; color: var(--text);
+}
+.hc-card-list li::before {
+  content: ''; position: absolute; left: 0; top: 0.74rem;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--gold);
+}
+.hc-card-foot {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border);
+}
+.hc-card-price {
+  font-family: var(--font-heading); font-size: 1.5rem; color: var(--pink-dark); line-height: 1;
+}
+.hc-card-time {
+  font-size: 0.68rem; font-weight: 700; color: var(--gold-dark);
+  background: var(--gold-light); padding: 4px 10px; border-radius: 20px; white-space: nowrap;
+}
+
+/* the biggest package carries the dark treatment */
+.hc-card--featured {
+  background: linear-gradient(150deg, var(--dark) 0%, #3D2000 55%, var(--pink-dark) 100%);
+  border-color: var(--gold-dark);
+}
+.hc-card--featured .hc-card-tag { color: var(--gold); }
+.hc-card--featured .hc-card-name { color: var(--white); }
+.hc-card--featured .hc-card-sub { color: rgba(255,255,255,0.72); border-bottom-color: rgba(255,255,255,0.2); }
+.hc-card--featured .hc-card-list li { color: rgba(255,255,255,0.86); }
+.hc-card--featured .hc-card-foot { border-top-color: rgba(255,255,255,0.22); }
+.hc-card--featured .hc-card-price { color: var(--white); }
+.hc-card--featured .hc-card-time { color: var(--dark); background: var(--gold); }
+.hc-card--featured:hover { border-color: var(--gold); }
+
+.hc-foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 0.6rem; margin: 0; padding-top: 1.2rem; border-top: 1px solid var(--border);
+  font-size: 0.78rem; color: var(--text-light);
+}
+.hc-spots {
+  font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--gold-dark); font-size: 0.72rem;
+}
+.hc-foot a { color: var(--pink-dark); font-weight: 700; text-decoration: none; }
+
+@media (max-width: 900px) {
+  .hc-top { grid-template-columns: 1fr; gap: 1.5rem; }
+  .hc-media { max-width: 420px; margin: 0 auto; }
+}
+
+@media (max-width: 640px) {
+  .hc-wrap { padding: 2rem 1.1rem 1.5rem; margin-bottom: 2.5rem; }
+  .hc-grid { grid-template-columns: 1fr; gap: 1rem; }
+  .hc-card { padding: 1.2rem 1.1rem; }
+  .hc-deposit { flex-direction: column; align-items: flex-start; gap: 0.7rem; }
+  .hc-deposit-badge { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.22); padding: 0 0 0.6rem; }
+  .hc-points { gap: 0.35rem 1rem; }
+  .hc-foot { flex-direction: column; align-items: flex-start; }
+}
+
+/* Deposit requirement on the booking summary. Shown only when the chosen
+   services include a Holiday Collection package. */
+.deposit-notice {
+  margin-top: 0.9rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--dark) 0%, #3D2000 60%, var(--pink-dark) 100%);
+  color: rgba(255,255,255,0.82);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.deposit-notice strong { color: var(--gold); display: block; margin-bottom: 0.2rem; font-size: 0.85rem; }

@@ -13,7 +13,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
   <meta name="referrer" content="strict-origin-when-cross-origin"/>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%238B4F1C'/><text y='74' x='16' font-size='70' font-family='Georgia,serif' fill='%23C9A84C'>L</text></svg>"/>
-  <link rel="stylesheet" href="styles.css?v=20"/>
+  <link rel="stylesheet" href="styles.css?v=21"/>
 </head>
 <body>
 
@@ -67,6 +67,7 @@
     <!-- Filter Tabs -->
     <div class="filter-tabs">
       <button class="filter-tab active" data-cat="all">All Services</button>
+      <button class="filter-tab" data-cat="holiday">Holiday Collection</button>
       <button class="filter-tab" data-cat="lunas-collection">The Lunas Collection</button>
       <button class="filter-tab" data-cat="packages">Spa Packages</button>
       <button class="filter-tab" data-cat="pedicures">Pedicures</button>
@@ -79,15 +80,121 @@
       <button class="filter-tab" data-cat="lipo">Weight Loss &amp; Lipo</button>
     </div>
 
-    <!-- The Lunas Collection — August promo -->
+    <!-- ── Lunas Holiday Collection — November & December ──────────────────
+         Uses .pricing-grid / .pricing-item so applyServices() keeps prices in
+         step with the admin Services Manager and hides anything she removes
+         there. (The Lunas Collection below uses .lc-grid instead, which is why
+         its cards drifted out of sync with the real catalogue.)
+         Service names here must match the admin records exactly, or
+         applyServices() will append a second plain card for each one. -->
+    <div class="services-category service-cat-section hc-wrap" data-cat="holiday">
+      <div class="hc-header">
+        <div class="hc-eyebrow">November &amp; December</div>
+        <h2 class="hc-title">Lunas Holiday <em>Collection</em></h2>
+        <div class="hc-tagline">Invest in your skin &nbsp;·&nbsp; your confidence &nbsp;·&nbsp; yourself</div>
+      </div>
+
+      <div class="hc-top">
+        <div class="hc-media">
+          <img src="holiday-packages.jpeg"
+               alt="Luna's Esthetics November and December self-care packages"
+               loading="lazy" width="820" height="1230"/>
+        </div>
+        <div class="hc-intro">
+          <p class="hc-lede">Look good, feel good, all season long. Three self-care packages
+            built to bundle the treatments our clients book together most — at a better price
+            than booking them separately.</p>
+
+          <div class="hc-deposit">
+            <div class="hc-deposit-badge">TTD 100</div>
+            <div class="hc-deposit-body">
+              <strong>A non-refundable TTD 100 deposit is mandatory</strong>
+              <span>It must be paid within <strong>48 hours of booking</strong> to secure your
+              appointment. Banking details are sent with your confirmation email.</span>
+            </div>
+          </div>
+
+          <ul class="hc-points">
+            <li>Professional services</li>
+            <li>High quality products</li>
+            <li>Relaxing &amp; private environment</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="pricing-grid hc-grid">
+        <div class="pricing-item hc-card">
+          <div class="hc-card-tag">Package 1</div>
+          <div class="pricing-name hc-card-name">The Lunas Glow</div>
+          <div class="pricing-desc" style="display:none;">Lunas Customizable Facial + Brazilian Wax + Eyebrow Wax • 2h 45m</div>
+          <div class="hc-card-sub">The perfect intro to self-care.</div>
+          <ul class="hc-card-list">
+            <li>Lunas Customizable Facial</li>
+            <li>Brazilian Wax</li>
+            <li>Eyebrow Wax</li>
+          </ul>
+          <div class="hc-card-foot">
+            <div class="pricing-price hc-card-price">TTD 650</div>
+            <div class="hc-card-time">2h 45m</div>
+          </div>
+        </div>
+
+        <div class="pricing-item hc-card">
+          <div class="hc-card-tag">Package 2</div>
+          <div class="pricing-name hc-card-name">The Lunas Smooth &amp; Glow</div>
+          <div class="pricing-desc" style="display:none;">Lunas Customizable Facial + Brazilian Wax + Underarm Wax + Vajacial + Eyebrow Wax &amp; Tint • 3h 30m</div>
+          <div class="hc-card-sub">Smooth skin. Polished brows. Total confidence.</div>
+          <ul class="hc-card-list">
+            <li>Lunas Customizable Facial</li>
+            <li>Brazilian Wax</li>
+            <li>Underarm Wax</li>
+            <li>Vajacial</li>
+            <li>Eyebrow Wax &amp; Tint</li>
+          </ul>
+          <div class="hc-card-foot">
+            <div class="pricing-price hc-card-price">TTD 950</div>
+            <div class="hc-card-time">3h 30m</div>
+          </div>
+        </div>
+
+        <div class="pricing-item hc-card hc-card--featured">
+          <div class="hc-card-tag">Package 3</div>
+          <div class="pricing-name hc-card-name">The Lunas Ultimate Reset</div>
+          <div class="pricing-desc" style="display:none;">Lunas Customizable Facial + Hollywood Wax + Brow Wax + Upper Lip Wax + Underarm Wax + Full Leg Wax + Vajacial + Eyebrow Lamination or Tint • 4h 30m</div>
+          <div class="hc-card-sub">The full experience. Because you deserve it.</div>
+          <ul class="hc-card-list">
+            <li>Lunas Customizable Facial</li>
+            <li>Hollywood Wax</li>
+            <li>Brow Wax</li>
+            <li>Upper Lip Wax</li>
+            <li>Underarm Wax</li>
+            <li>Full Leg Wax</li>
+            <li>Vajacial</li>
+            <li>Eyebrow Lamination or Tint</li>
+          </ul>
+          <div class="hc-card-foot">
+            <div class="pricing-price hc-card-price">TTD 1,500</div>
+            <div class="hc-card-time">4h 30m</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="hc-foot">
+        <span class="hc-spots">Limited spots available</span>
+        <span>Tap any package to book &nbsp;·&nbsp; or call
+          <a href="tel:18684639306">1(868) 463-9306</a></span>
+      </p>
+    </div>
+
+    <!-- The Lunas Collection — signature bundles -->
     <div class="services-category service-cat-section lc-wrap" data-cat="lunas-collection">
       <div class="lc-header">
-        <div class="lc-eyebrow">For August</div>
+        <div class="lc-eyebrow">Signature Bundles</div>
         <h2 class="lc-title">The Lunas <em>Collection</em></h2>
         <div class="lc-tagline">Beauty. Confidence. Results.</div>
       </div>
       <div class="lc-meta">
-        <span><strong>Available</strong> 1st – 31st August</span>
+        <span><strong>Available</strong> Year round</span>
         <span><strong>Note</strong> Consultations required for some treatments</span>
         <span><strong>Call</strong> <a href="tel:18684639306">1(868) 463-9306</a></span>
         <span><strong>Location</strong> Chaguanas</span>
@@ -121,18 +228,6 @@
             <div class="lc-card-save">Saves TTD 100</div>
           </div>
         </div>
-        <div class="pricing-item lc-card">
-          <div class="pricing-name lc-card-name">Facial Package</div>
-          <div class="pricing-desc" style="display:none;">Free consultation + Customized Reset Facial — perfect if you haven't had a facial in a while (or ever) • 2 hrs</div>
-          <ul class="lc-card-list">
-            <li>Free consultation</li>
-            <li>Customized Reset Facial</li>
-            <li>Perfect if you haven't had a facial in a while (or ever)</li>
-          </ul>
-          <div class="lc-card-foot">
-            <div class="pricing-price lc-card-price">TTD 300</div>
-            <div class="lc-card-save">Saves TTD 300</div>
-          </div>
         </div>
         <div class="pricing-item lc-card lc-card--featured">
           <div class="pricing-name lc-card-name">The Lunas Effect Weight Loss Bundle</div>
@@ -628,6 +723,6 @@
   </div>
 </footer>
 
-<script src="script.js?v=37"></script>
+<script src="script.js?v=38"></script>
 </body>
 </html>

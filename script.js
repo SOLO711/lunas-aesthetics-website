@@ -970,6 +970,11 @@ function initBooking() {
 
   // Load from localStorage if admin has customised, otherwise use defaults
   const services = JSON.parse(localStorage.getItem('lunas_services') || 'null') || {
+    'Lunas Holiday Collection': [
+      { name: 'The Lunas Glow', price: 'TTD 650', duration: '2h 45m' },
+      { name: 'The Lunas Smooth & Glow', price: 'TTD 950', duration: '3h 30m' },
+      { name: 'The Lunas Ultimate Reset', price: 'TTD 1,500', duration: '4h 30m' },
+    ],
     'The Lunas Collection': [
       { name: 'Laser Hair Removal Bundle', price: 'TTD 1,000', duration: '1h 30m' },
       { name: 'Waxing Package', price: 'TTD 400', duration: '1 hr' },
@@ -1055,6 +1060,13 @@ function initBooking() {
 
   // Categories that must not be bookable online (client instructions). Removing
   // a name from this list re-enables it — no other logic needs to change.
+  // Declared up here because the ?cat=&svc= prefill below runs during setup and
+  // calls updateEstheticianPicker(), which reads _selectedEsthetician. Declaring
+  // them after that block threw "Cannot access before initialization" on every
+  // deep link from the services page, aborting the rest of the prefill.
+  let _bookingType = 'confirmed';
+  let _selectedEsthetician = 'chel-c'; // 'chel-c' | 'timothy'
+
   const DISABLED_BOOKING_CATEGORIES = ['Pedicures'];
 
   // Populate category dropdown
@@ -1118,8 +1130,6 @@ function initBooking() {
   // Time slots
   const times = SLOT_GRID_12;
 
-  let _bookingType = 'confirmed';
-  let _selectedEsthetician = 'chel-c'; // 'chel-c' | 'timothy'
 
   // A service is "facial-eligible" (bookable with Timothy) if it's a plain
   // Advanced Facials service, or the Facial Package bundle inside The Lunas
@@ -1270,6 +1280,13 @@ function initBooking() {
     });
   }
 
+  // Packages in the Holiday Collection require a deposit to hold the slot. One
+  // place decides it, used by the summary notice and the confirmation email.
+  const DEPOSIT_CATEGORY = 'Lunas Holiday Collection';
+  const DEPOSIT_AMOUNT = 'TTD 100';
+  function _needsDeposit(list) {
+    return (list || []).some(s => s && s.category === DEPOSIT_CATEGORY);
+  }
   function updateSummary() {
     if (!summary) return;
     const date = dateInput?.value;
@@ -1287,6 +1304,8 @@ function initBooking() {
     }
 
     // Duration — list all if multiple
+    const depEl = document.getElementById('depositNotice');
+    if (depEl) depEl.style.display = _needsDeposit(selectedServices) ? '' : 'none';
     const durEl = document.getElementById('sumDuration');
     if (durEl) durEl.textContent = selectedServices.length === 1
       ? selectedServices[0].duration
@@ -1614,10 +1633,19 @@ function initBooking() {
     // Send customer confirmation (only if they provided an email)
     if (booking.email) {
       try {
+        const _depositLine = _needsDeposit(booking.services)
+          ? ' IMPORTANT: a non-refundable ' + DEPOSIT_AMOUNT + ' deposit must be paid within 48 hours'
+            + ' of booking to secure this appointment. Our banking details are below.'
+          : '';
         await sendClientEmail(
           booking.name, booking.email,
           booking.service, booking.price,
-          formattedDate, booking.time, isRequest
+          formattedDate, booking.time, isRequest,
+          _depositLine
+            ? (isRequest
+                ? 'Your request has been received and Chel-C will contact you shortly to confirm your time.' + _depositLine
+                : 'Your appointment is confirmed. We look forward to seeing you!' + _depositLine)
+            : undefined
         );
       } catch (err) { console.error('Customer confirmation email failed:', err); }
     }
@@ -4299,6 +4327,7 @@ initCoursesMgr();
     'Body Contouring':        'contouring',
     'Intimate Brightening':   'brightening',
     'Weight Loss & Lipo Shots': 'lipo',
+    'Lunas Holiday Collection': 'holiday',
     'The Lunas Collection':   'lunas-collection',
   };
 
@@ -4365,6 +4394,7 @@ initCoursesMgr();
     contouring:  'Body Contouring',
     brightening: 'Intimate Brightening',
     lipo:        'Weight Loss & Lipo Shots',
+    holiday:     'Lunas Holiday Collection',
     'lunas-collection': 'The Lunas Collection',
   };
 
@@ -4507,6 +4537,11 @@ function initServicesMgr() {
   if (!panel) return;
 
   const DEFAULT_SERVICES = {
+    'Lunas Holiday Collection': [
+      { name: 'The Lunas Glow', price: 'TTD 650', duration: '2h 45m' },
+      { name: 'The Lunas Smooth & Glow', price: 'TTD 950', duration: '3h 30m' },
+      { name: 'The Lunas Ultimate Reset', price: 'TTD 1,500', duration: '4h 30m' },
+    ],
     'The Lunas Collection': [
       { name: 'Laser Hair Removal Bundle', price: 'TTD 1,000', duration: '1h 30m' },
       { name: 'Waxing Package', price: 'TTD 400', duration: '1 hr' },
