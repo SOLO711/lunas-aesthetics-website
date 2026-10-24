@@ -4034,3 +4034,25 @@ tr.client-blocked td { background: #FFF1F1; }
   line-height: 1.6;
 }
 .deposit-notice strong { color: var(--gold); display: block; margin-bottom: 0.2rem; font-size: 0.85rem; }
+
+/* ── No time available → WhatsApp fallback ── */
+.slot-closed-msg .slot-wa-link {
+  display: inline-block; margin-top: 0.6rem; padding: 0.5rem 0.9rem;
+  background: #25D366; color: #fff; border-radius: 999px;
+  font-size: 0.85rem; font-weight: 700; text-decoration: none;
+  transition: filter 0.2s ease;
+}
+.slot-closed-msg .slot-wa-link:hover { filter: brightness(0.93); }
+.slot-closed-msg .slot-wa-note {
+  display: block; margin-top: 0.45rem;
+  font-size: 0.78rem; font-weight: 500; color: #7F1D1D; opacity: 0.85;
+}
+
+/* ── Admin: payment state ── */
+.pay-badge {
+  display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px;
+  font-size: 0.72rem; font-weight: 700; white-space: nowrap;
+}
+.pay-badge.is-paid { background: #DCFCE7; color: #166534; }
+.pay-badge.is-unpaid { background: #FEF3C7; color: #92400E; }
+.pay-badge.is-missing { background: #FEE2E2; color: #991B1B; }

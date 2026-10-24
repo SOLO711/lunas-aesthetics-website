@@ -618,9 +618,13 @@ function getCourseEnrollments() {
   try { return JSON.parse(localStorage.getItem('lunas_course_enrollments') || '[]'); }
   catch(e) { return []; }
 }
-function saveCourseEnrollments(data) {
+// Mirrors saveManualEvents: the server write is awaited and localStorage is
+// only updated once it lands, so a failed save can never look like a saved one.
+async function saveCourseEnrollments(data) {
+  const ok = await _fsSet('course_enrollments', data);
+  if (ok === false) return false;
   localStorage.setItem('lunas_course_enrollments', JSON.stringify(data));
-  _fsSet('course_enrollments', data);
+  return true;
 }
 
 /* ── Booking date rules ── */
@@ -1064,6 +1068,20 @@ function initBooking() {
   // calls updateEstheticianPicker(), which reads _selectedEsthetician. Declaring
   // them after that block threw "Cannot access before initialization" on every
   // deep link from the services page, aborting the rest of the prefill.
+  // When we cannot offer a time, always give the client a way through rather
+  // than a dead end. Number mirrors the one shown everywhere else on the site.
+  const WHATSAPP_NUMBER = '18684639306';
+  const WHATSAPP_DISPLAY = '(868) 463-9306';
+  function noTimesHtml(reason) {
+    const svc = selectedServices.map(s => s.name).join(', ');
+    const msg = encodeURIComponent(
+      `Hi Luna's! I'd like to book${svc ? ' ' + svc : ''} but I couldn't find a time online.`);
+    return `<div class="slot-closed-msg">${reason}` +
+      `<a class="slot-wa-link" href="https://wa.me/${WHATSAPP_NUMBER}?text=${msg}" ` +
+      `target="_blank" rel="noopener">WhatsApp us on ${WHATSAPP_DISPLAY}</a>` +
+      `<span class="slot-wa-note">We can often fit you in outside the times shown here.</span></div>`;
+  }
+
   let _bookingType = 'confirmed';
   let _selectedEsthetician = 'chel-c'; // 'chel-c' | 'timothy'
 
@@ -1198,7 +1216,7 @@ function initBooking() {
 
     // Block Mondays (0=Sun, 1=Mon)
     if (new Date(dateStr + 'T00:00').getDay() === 1) {
-      timeWrap.innerHTML = '<div class="slot-closed-msg">🚫 We\'re closed on Mondays — please choose another day.</div>';
+      timeWrap.innerHTML = noTimesHtml("We're closed on Mondays.");
       selectedTimeInput.value = '';
       _bookingType = 'confirmed';
       if (requestNotice) requestNotice.style.display = 'none';
@@ -1222,7 +1240,7 @@ function initBooking() {
     localStorage.setItem('lunas_blocked_dates', JSON.stringify(freshBD));
 
     if (isDateBlocked(dateStr)) {
-      timeWrap.innerHTML = '<div class="slot-closed-msg">🚫 This date is fully booked out — please choose a different date.</div>';
+      timeWrap.innerHTML = noTimesHtml('This date is fully booked out.');
       selectedTimeInput.value = '';
       _bookingType = 'confirmed';
       if (requestNotice) requestNotice.style.display = 'none';
@@ -1278,6 +1296,18 @@ function initBooking() {
 
       timeWrap.appendChild(btn);
     });
+
+    // Every slot can be taken, blocked, or too late for a long service - in
+    // which case the grid renders fully greyed out and says nothing at all.
+    // Offer a way through instead of leaving the client on dead buttons.
+    if (!timeWrap.querySelector('.time-slot:not([disabled])')) {
+      const dur = totalDurationMinutes(selectedServices);
+      timeWrap.innerHTML = noTimesHtml(dur >= 180
+        ? 'No gap long enough for this service on that date.'
+        : 'Every time on that date is taken.');
+      selectedTimeInput.value = '';
+      updateSummary();
+    }
   }
 
   // Packages in the Holiday Collection require a deposit to hold the slot. One
@@ -2686,9 +2716,11 @@ window.selectCalDay = dateStr => {
           <div class="cal-detail-time">${item.startTime}<br><span style="font-size:0.7rem;color:var(--text-light);">→ ${item.endTime}</span></div>
           <div class="cal-detail-info">
             <strong>${safe(item.title)}</strong>
-            <div style="font-size:0.78rem;color:#7C3AED;font-weight:600;">Manual Entry</div>
+            <div style="font-size:0.78rem;color:#7C3AED;font-weight:600;">Manual Entry${item.amount ? ` · TTD ${Number(item.amount).toLocaleString()}` : ''}</div>
+            <div style="margin-top:0.3rem;">${manualPayBadge(item)}</div>
           </div>
           <div style="display:flex;gap:0.4rem;">
+            <button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:${item.paid ? '#FEF3C7' : '#DCFCE7'};color:${item.paid ? '#92400E' : '#166534'};border:1px solid ${item.paid ? '#FDE68A' : '#86EFAC'};" onclick="toggleManualPaid('${item.id}','${dateStr}')">${item.paid ? 'Mark unpaid' : 'Mark paid'}</button>
             <button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#EDE9FE;color:#6D28D9;border:1px solid #C4B5FD;" onclick="editManualEvent('${item.id}','${dateStr}')">Edit</button>
             <button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteManualEvent('${item.id}','${dateStr}')">Remove</button>
           </div>
@@ -2716,6 +2748,16 @@ window.showAddEntryForm = dateStr => {
         <label style="font-size:0.8rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.3rem;">End Time</label>
         <input id="addEntryEnd" type="time" style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.88rem;box-sizing:border-box;font-family:var(--font-body);"/>
       </div>
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.3rem;">Amount (TTD)</label>
+        <input id="addEntryAmount" type="number" min="0" step="any" placeholder="e.g. 400" style="width:100%;padding:0.55rem 0.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.88rem;box-sizing:border-box;font-family:var(--font-body);"/>
+      </div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:0.15rem;">
+        <label style="font-size:0.85rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:0.45rem;cursor:pointer;">
+          <input id="addEntryPaid" type="checkbox" style="width:17px;height:17px;accent-color:#166534;cursor:pointer;"/>
+          Paid — count in revenue
+        </label>
+      </div>
     </div>
     <div style="display:flex;gap:0.5rem;">
       <button class="btn-admin btn-admin-pink" onclick="saveManualEntry('${dateStr}')">Save Entry</button>
@@ -2733,7 +2775,9 @@ window.saveManualEntry = async dateStr => {
   if (!startTime) { alert('Please enter a start time.'); return; }
   if (!endTime) { alert('Please enter an end time.'); return; }
   const events = getManualEvents();
-  events.push({ id: Date.now().toString(), date: dateStr, title, startTime, endTime });
+  const amount = Number(document.getElementById('addEntryAmount')?.value) || 0;
+  const paid = !!document.getElementById('addEntryPaid')?.checked;
+  events.push({ id: Date.now().toString(), date: dateStr, title, startTime, endTime, amount, paid });
   if (!await saveManualEvents(events)) {
     alert('⚠️ Could not save to the server — check your connection and try again. This entry was NOT saved.');
     return;
@@ -2750,6 +2794,50 @@ window.deleteManualEvent = async (id, dateStr) => {
   }
   renderCalendar();
   selectCalDay(dateStr);
+};
+
+// A manual entry with no amount is money we cannot account for, so say so
+// loudly rather than quietly treating it as zero.
+window.toggleEnrolPaid = async id => {
+  const list = getCourseEnrollments();
+  const idx = list.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  if (!parseTTD(list[idx].amount)) {
+    alert('Set the course fee for this enrolment first, then mark it paid.');
+    return;
+  }
+  const current = typeof list[idx].paid === 'boolean'
+    ? list[idx].paid
+    : (list[idx].status === 'confirmed' || list[idx].status === 'completed');
+  list[idx].paid = !current;
+  await saveCourseEnrollments(list);
+  renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
+  if (typeof renderDashboard === 'function') renderDashboard();
+};
+
+function manualPayBadge(e) {
+  if (!e.amount) return '<span class="pay-badge is-missing">No amount set</span>';
+  return e.paid
+    ? '<span class="pay-badge is-paid">Paid · in revenue</span>'
+    : '<span class="pay-badge is-unpaid">Unpaid · not counted</span>';
+}
+
+window.toggleManualPaid = async (id, dateStr) => {
+  const events = getManualEvents();
+  const idx = events.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  if (!events[idx].amount) {
+    alert('Set an amount for this entry first — use Edit — so it can be counted in revenue.');
+    return;
+  }
+  events[idx] = { ...events[idx], paid: !events[idx].paid };
+  if (!await saveManualEvents(events)) {
+    alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.');
+    return;
+  }
+  renderCalendar();
+  selectCalDay(dateStr);
+  if (typeof renderDashboard === 'function') renderDashboard();
 };
 
 window.editManualEvent = (id, dateStr) => {
@@ -2772,6 +2860,16 @@ window.editManualEvent = (id, dateStr) => {
         <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.25rem;">End Time</label>
         <input id="editEntryEnd-${id}" type="time" value="${entry.endTime}" style="${inputStyle}"/>
       </div>
+      <div>
+        <label style="font-size:0.78rem;font-weight:600;color:var(--text);display:block;margin-bottom:0.25rem;">Amount (TTD)</label>
+        <input id="editEntryAmount-${id}" type="number" min="0" step="any" value="${entry.amount || ''}" placeholder="e.g. 400" style="${inputStyle}"/>
+      </div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:0.3rem;">
+        <label style="font-size:0.82rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:0.45rem;cursor:pointer;">
+          <input id="editEntryPaid-${id}" type="checkbox" ${entry.paid ? 'checked' : ''} style="width:17px;height:17px;accent-color:#166534;cursor:pointer;"/>
+          Paid — count in revenue
+        </label>
+      </div>
       <div style="grid-column:1/-1;display:flex;gap:0.5rem;margin-top:0.25rem;">
         <button class="btn-admin btn-admin-pink" style="font-size:0.8rem;" onclick="saveEditManualEvent('${id}','${dateStr}')">Save Changes</button>
         <button class="btn-admin btn-admin-ghost" style="font-size:0.8rem;" onclick="selectCalDay('${dateStr}')">Cancel</button>
@@ -2790,7 +2888,9 @@ window.saveEditManualEvent = async (id, dateStr) => {
   const events = getManualEvents();
   const idx = events.findIndex(e => e.id === id);
   if (idx === -1) return;
-  events[idx] = { ...events[idx], title, startTime, endTime };
+  const amount = Number(document.getElementById(`editEntryAmount-${id}`)?.value) || 0;
+  const paid = !!document.getElementById(`editEntryPaid-${id}`)?.checked;
+  events[idx] = { ...events[idx], title, startTime, endTime, amount, paid };
   if (!await saveManualEvents(events)) {
     alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.');
     return;
@@ -2830,7 +2930,7 @@ function renderCourseEnrollments(search = '') {
   ) : all;
 
   const revenue = all
-    .filter(e => e.status === 'confirmed' || e.status === 'completed')
+    .filter(enrolCountsAsRevenue)
     .reduce((sum, e) => sum + (parseTTD(e.amount) || 0), 0);
 
   const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
@@ -2842,7 +2942,7 @@ function renderCourseEnrollments(search = '') {
   if (countEl) countEl.textContent = `${filtered.length} enrolment${filtered.length !== 1 ? 's' : ''}`;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:2rem;color:#9CA3AF;">${q ? 'No results found.' : 'No course enrolments yet. They will appear here when students enrol via the website or are added manually.'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:2rem;color:#9CA3AF;">${q ? 'No results found.' : 'No course enrolments yet. They will appear here when students enrol via the website or are added manually.'}</td></tr>`;
     return;
   }
 
@@ -2852,7 +2952,16 @@ function renderCourseEnrollments(search = '') {
       ? '<span style="font-size:0.7rem;background:#EDE9FE;color:#7C3AED;padding:2px 6px;border-radius:4px;font-weight:600;">Manual</span>'
       : '<span style="font-size:0.7rem;background:#E0F2FE;color:#0369A1;padding:2px 6px;border-radius:4px;font-weight:600;">Website</span>';
     const amtNum = parseTTD(e.amount);
-    const amtDisplay = amtNum > 0 ? `<span style="font-weight:700;color:#065F46;">TTD ${amtNum.toLocaleString('en-TT')}</span>` : '<span style="color:#9CA3AF;">—</span>';
+    // An enrolment with no fee is money going unrecorded. Make it editable in
+    // place and impossible to overlook, instead of printing a quiet dash.
+    const amtDisplay = `<input type="number" min="0" step="any" value="${amtNum || ''}" placeholder="not set"
+        class="ce-amt-input" data-id="${e.id}"
+        style="width:92px;padding:4px 7px;border:1px solid ${amtNum > 0 ? 'var(--border)' : '#FCA5A5'};border-radius:6px;font-size:0.83rem;font-weight:700;color:${amtNum > 0 ? '#065F46' : '#991B1B'};background:${amtNum > 0 ? '#fff' : '#FEF2F2'};font-family:var(--font-body);"/>`;
+    const paidState = typeof e.paid === 'boolean' ? e.paid : (e.status === 'confirmed' || e.status === 'completed');
+    const payCell = !amtNum
+      ? '<span class="pay-badge is-missing">Set a fee first</span>'
+      : `<button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:${paidState ? '#FEF3C7' : '#DCFCE7'};color:${paidState ? '#92400E' : '#166534'};border:1px solid ${paidState ? '#FDE68A' : '#86EFAC'};" onclick="toggleEnrolPaid('${e.id}')">${paidState ? 'Mark unpaid' : 'Mark paid'}</button>` +
+        `<div style="margin-top:0.3rem;">${paidState ? '<span class="pay-badge is-paid">In revenue</span>' : '<span class="pay-badge is-unpaid">Not counted</span>'}</div>`;
     return `<tr>
       <td data-label="Student"><strong>${safe(e.name)}</strong><br>${srcBadge}</td>
       <td data-label="Phone">${safe(e.phone)}</td>
@@ -2868,26 +2977,43 @@ function renderCourseEnrollments(search = '') {
           <option value="cancelled" ${e.status==='cancelled'?'selected':''}>Cancelled</option>
         </select>
       </td>
+      <td data-label="Payment">${payCell}</td>
       <td data-label="Notes" style="font-size:0.8rem;max-width:140px;color:var(--text-light);">${safe(e.notes || '—')}</td>
       <td data-label="Actions"><button class="btn-admin" style="font-size:0.72rem;padding:4px 10px;background:#FEE2E2;color:#991B1B;border:1px solid #FCA5A5;" onclick="deleteCourseEnrolment('${e.id}')">Remove</button></td>
     </tr>`;
   }).join('');
 
+  tbody.querySelectorAll('.ce-amt-input').forEach(inp => {
+    inp.addEventListener('change', async () => {
+      const list = getCourseEnrollments();
+      const idx = list.findIndex(e => e.id === inp.dataset.id);
+      if (idx === -1) return;
+      list[idx].amount = Number(inp.value) || 0;
+      if (!list[idx].amount) list[idx].paid = false;
+      await saveCourseEnrollments(list);
+      renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
+    });
+  });
+
+
   tbody.querySelectorAll('.ce-status-sel').forEach(sel => {
-    sel.addEventListener('change', () => {
+    sel.addEventListener('change', async () => {
       const list = getCourseEnrollments();
       const idx = list.findIndex(e => e.id === sel.dataset.id);
       if (idx === -1) return;
       list[idx].status = sel.value;
-      saveCourseEnrollments(list);
+      if (!await saveCourseEnrollments(list)) { alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.'); }
       renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
     });
   });
 }
 
-window.deleteCourseEnrolment = id => {
+window.deleteCourseEnrolment = async id => {
   if (!confirm('Remove this enrolment record?')) return;
-  saveCourseEnrollments(getCourseEnrollments().filter(e => e.id !== id));
+  if (!await saveCourseEnrollments(getCourseEnrollments().filter(e => e.id !== id))) {
+    alert('⚠️ Could not save to the server — check your connection and try again. This change was NOT saved.');
+    return;
+  }
   renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
 };
 
@@ -2923,7 +3049,7 @@ window.deleteCourseEnrolment = id => {
     document.getElementById('enrolmentModal')?.classList.remove('open');
   });
 
-  document.getElementById('enrolmentForm')?.addEventListener('submit', e => {
+  document.getElementById('enrolmentForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const enrollment = {
@@ -2940,7 +3066,10 @@ window.deleteCourseEnrolment = id => {
     };
     const list = getCourseEnrollments();
     list.unshift(enrollment);
-    saveCourseEnrollments(list);
+    if (!await saveCourseEnrollments(list)) {
+      alert('⚠️ Could not save to the server — check your connection and try again. This enrolment was NOT saved.');
+      return;
+    }
     document.getElementById('enrolmentModal')?.classList.remove('open');
     renderCourseEnrollments(document.getElementById('ceSearch')?.value.toLowerCase() || '');
   });
@@ -3051,6 +3180,21 @@ window.deleteProOrder = id => {
   });
 })();
 
+// An enrolment counts toward revenue once it is explicitly marked paid.
+// Records predating payment tracking have no `paid` field, so they keep the
+// old behaviour (confirmed/completed) and historic figures stay intact.
+function enrolCountsAsRevenue(e) {
+  if (typeof e.paid === 'boolean') return e.paid;
+  return e.status === 'confirmed' || e.status === 'completed';
+}
+
+// Manual entries are opt-in only: Chel-C sets the amount and ticks paid.
+function manualRevenueIn(events, from, to) {
+  return events
+    .filter(e => e.paid && e.date && e.date >= from && e.date <= to)
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+}
+
 function renderDashboard() {
   const bookings = getDB('lunas_bookings');
   const clients = getDB('lunas_clients');
@@ -3066,10 +3210,14 @@ function renderDashboard() {
 
   // Include confirmed/completed course enrollment revenue in monthly total
   const monthEnrolRev = getCourseEnrollments()
-    .filter(e => e.enrolledDate && e.enrolledDate.startsWith(monthPrefix) && (e.status === 'confirmed' || e.status === 'completed'))
+    .filter(e => e.enrolledDate && e.enrolledDate.startsWith(monthPrefix) && enrolCountsAsRevenue(e))
     .reduce((sum, e) => sum + parseTTD(e.amount), 0);
 
-  const monthRevenue = monthBookRev + monthEnrolRev;
+  // Walk-ins and anyone Chel-C books by hand earn money too - they used to be
+  // invisible here, which made the month look smaller than it really was.
+  const monthManualRev = manualRevenueIn(getManualEvents(), `${monthPrefix}-01`, `${monthPrefix}-31`);
+
+  const monthRevenue = monthBookRev + monthEnrolRev + monthManualRev;
 
   const revEl = document.getElementById('statMonthRevenue');
   const revLabel = document.getElementById('statMonthRevenueLabel');
@@ -3583,16 +3731,19 @@ async function renderAnalytics(days) {
   const allCur = bookings.filter(b => b.date >= curStr  && b.date <= nowStr);
 
   // Course enrollments: only confirmed or completed count toward revenue
-  const enrCur  = enrollments.filter(e => e.enrolledDate >= curStr  && e.enrolledDate <= nowStr && (e.status === 'confirmed' || e.status === 'completed'));
-  const enrPrev = enrollments.filter(e => e.enrolledDate >= prevStr && e.enrolledDate < curStr  && (e.status === 'confirmed' || e.status === 'completed'));
+  const enrCur  = enrollments.filter(e => e.enrolledDate >= curStr  && e.enrolledDate <= nowStr && enrolCountsAsRevenue(e));
+  const enrPrev = enrollments.filter(e => e.enrolledDate >= prevStr && e.enrolledDate < curStr  && enrolCountsAsRevenue(e));
 
   // Revenue = service bookings (use discountedPrice if promo applied) + course enrollments
   const curBookRev  = inCur.reduce((s, b)  => s + _parsePrice(b.discountedPrice || b.price), 0);
   const prevBookRev = inPrev.reduce((s, b) => s + _parsePrice(b.discountedPrice || b.price), 0);
   const curEnrRev   = enrCur.reduce((s, e)  => s + parseTTD(e.amount), 0);
   const prevEnrRev  = enrPrev.reduce((s, e) => s + parseTTD(e.amount), 0);
-  const curRev  = curBookRev  + curEnrRev;
-  const prevRev = prevBookRev + prevEnrRev;
+  const manualAll = getManualEvents();
+  const curManRev  = manualRevenueIn(manualAll, curStr, nowStr);
+  const prevManRev = manualRevenueIn(manualAll, prevStr, curStr);
+  const curRev  = curBookRev  + curEnrRev  + curManRev;
+  const prevRev = prevBookRev + prevEnrRev + prevManRev;
 
   const curAvg  = inCur.length  ? curBookRev  / inCur.length  : 0;
   const prevAvg = inPrev.length ? prevBookRev / inPrev.length : 0;

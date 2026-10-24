@@ -66,9 +66,17 @@ export async function onRequestPost({ request, env }) {
   const matched = list.find(c => c && c.name === course)
                || list.find(c => c && norm(c.name) === norm(course));
 
+  // A course with no record used to price silently at zero, so the enrolment
+  // was taken and the money never showed up anywhere. Still accept it - never
+  // turn a paying student away - but label it so it cannot be missed.
   const priced = matched
     ? priceEnrolment(matched.price)
-    : { amount: 0, currency: 'TTD', amountOriginal: 0, note: '' };
+    : {
+        amount: 0, currency: 'TTD', amountOriginal: 0,
+        note: 'ACTION NEEDED: no course record named "' + course + '", so the fee '
+            + 'was not recorded. Set the amount on this row, then mark it paid.',
+        unpriced: true,
+      };
 
   const enrollment = {
     id: 'ce_' + Date.now(),
@@ -80,6 +88,7 @@ export async function onRequestPost({ request, env }) {
     enrolledDate: new Date().toISOString().split('T')[0],
     status: 'pending',
     notes: priced.note,
+    unpriced: !!priced.unpriced,         // surfaced as a warning in the admin table
     source: 'website',
   };
 
