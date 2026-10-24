@@ -3894,8 +3894,10 @@ tr.client-blocked td { background: #FFF1F1; }
 /* flyer + intro */
 .hc-top {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) 1.35fr;
-  gap: 2rem; align-items: start; margin-bottom: 2.25rem;
+  /* the flyer is 2:3, so a narrower column keeps it from towering over the
+     intro text and leaving a dead gap beside it on wide screens */
+  grid-template-columns: minmax(190px, 0.52fr) 1.48fr;
+  gap: 2rem; align-items: center; margin-bottom: 2.25rem;
 }
 .hc-media {
   border: 1px solid var(--border); border-radius: var(--radius);
