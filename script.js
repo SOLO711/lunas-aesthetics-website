@@ -527,6 +527,45 @@ const _lastUpdateTimes = {};
 // Back-compat wrapper: null on both failure and empty, as before.
 async function _fsGet(key) { return (await _fsRead(key)).data; }
 
+// Every write funnels through _fsSet, and several callers still do not await
+// it, so a failed save used to leave no trace at all: the panel went on showing
+// the edit while the database kept the old value. The commonest cause is simply
+// that the admin session has expired - the panel stays on screen when that
+// happens, because it renders from localStorage, so nothing looks wrong.
+//
+// Deliberately not alert(): a modal dialog blocks the page and anything else
+// in flight, and it is easy to dismiss without reading.
+function _showWriteFailure(status, msg) {
+  if (typeof document === 'undefined' || !document.body) return;
+  const expired = status === 401 || status === 403;
+  const id = '_writeFailBanner';
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = id;
+    el.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;' +
+      'background:#DC2626;color:#fff;padding:14px 18px;gap:14px;' +
+      'display:flex;align-items:center;justify-content:center;text-align:center;' +
+      'font:600 14px/1.5 system-ui,-apple-system,sans-serif;';
+    const span = document.createElement('span');
+    span.id = id + 'Text';
+    const btn = document.createElement('button');
+    btn.textContent = 'Dismiss';
+    btn.style.cssText = 'background:#fff;color:#DC2626;border:0;border-radius:3px;' +
+      'padding:6px 14px;font:700 13px system-ui,sans-serif;cursor:pointer;flex:none;';
+    btn.onclick = () => el.remove();
+    el.appendChild(span);
+    el.appendChild(btn);
+    document.body.appendChild(el);
+  }
+  document.getElementById(id + 'Text').textContent = expired
+    ? 'NOT SAVED — your admin session has expired. Sign in again and redo that '
+      + 'change: the panel is still showing it, but the website and the database '
+      + 'have the old version.'
+    : 'NOT SAVED — that change did not reach the database (' + msg + '). The panel '
+      + 'is still showing it, but the website has the old version.';
+}
+
 // Writes one document. Admin session required; the public site creates records
 // through the dedicated /api/public/* endpoints instead.
 // Writes one document. Admin session required; the public site creates records
@@ -563,9 +602,11 @@ async function _fsSet(key, val, _retried) {
       return _fsSet(key, val, true);
     }
     console.warn('[data] write failed [' + key + ']: ' + msg);
+    _showWriteFailure(res.status, msg);
     return false;
   } catch (e) {
     console.warn('[data] write failed [' + key + ']:', e.message);
+    _showWriteFailure(0, e.message || 'network error');
     return false;
   }
 }
@@ -4372,9 +4413,28 @@ initCoursesMgr();
   const mgtList = document.getElementById('mgtList');
   if (!mgtList) return;
 
-  // Courses laid out by hand in courses.html. 11 is the Bahamas showcase section -
-  // listing it here keeps renderExtras() from drawing a second, plainer copy of it.
+  // Courses laid out by hand in courses.html, which renderExtras() must not
+  // draw a second, plainer copy of. Ids 1-10 are the static cards.
+  //
+  // Matching on id alone was not enough: a course added through the admin panel
+  // is given a timestamp id, so the Bahamas course never matched the 11 that was
+  // listed here for it and appeared twice - once as its showcase section and
+  // again as a plain card. Each handmade section now names the record it stands
+  // for in data-course-name, and that is what excludes it, so this keeps working
+  // however the record was created.
   const DEFAULT_IDS = new Set([1,2,3,4,5,6,7,8,9,10,11]);
+  // Same normalisation the enrol endpoint uses, so a stray double space or a
+  // hyphen typed where an em dash belongs still matches.
+  const normName = t => String(t || '')
+    .replace(/[‐-―−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  const HANDMADE_NAMES = new Set(
+    [...document.querySelectorAll('[data-course-name]')]
+      .map(el => normName(el.getAttribute('data-course-name')))
+      .filter(Boolean)
+  );
   // Course prices are free text. Most are TTD and written without the code, but
   // some courses are priced in another currency (the Bahamas course is USD), so
   // only prepend TTD when the price does not already name one.
@@ -4414,7 +4474,10 @@ initCoursesMgr();
   }
 
   function renderExtras() {
-    const extras = getCourses().filter(c => !DEFAULT_IDS.has(Number(c.id)) && c.status !== 'inactive');
+    const extras = getCourses().filter(c =>
+      !DEFAULT_IDS.has(Number(c.id)) &&
+      !HANDMADE_NAMES.has(normName(c.name)) &&
+      c.status !== 'inactive');
     const container = document.getElementById('extraCourseCards');
     const grid = document.getElementById('extraCourseGrid');
     if (!container || !grid) return;
@@ -4937,9 +5000,14 @@ function initCoursesMgr() {
   function loadCourses() {
     return JSON.parse(localStorage.getItem('lunas_courses') || 'null') || DEFAULT_COURSES;
   }
-  function saveCourses(data) {
+  // Mirrors saveCourseEnrollments: the server write is awaited and the local
+  // copy is only updated once it lands, so a rejected save can never leave the
+  // panel showing a course the live site does not have.
+  async function saveCourses(data) {
+    const ok = await _fsSet('courses', data);
+    if (ok === false) return false;
     localStorage.setItem('lunas_courses', JSON.stringify(data));
-    _fsSet('courses', data);
+    return true;
   }
 
   const tbody  = document.getElementById('coursesBody');
@@ -4995,7 +5063,7 @@ function initCoursesMgr() {
   document.getElementById('courseModalClose').onclick = () => modal.classList.remove('open');
   document.getElementById('addCourseBtn').onclick = () => openModal('Add Course');
 
-  tbody.addEventListener('click', e => {
+  tbody.addEventListener('click', async e => {
     const data = loadCourses();
     const editBtn = e.target.closest('[data-edit-id]');
     const delBtn  = e.target.closest('[data-del-id]');
@@ -5006,12 +5074,12 @@ function initCoursesMgr() {
     if (delBtn) {
       const course = data.find(c => c.id == delBtn.dataset.delId);
       if (!course || !confirm(`Delete "${course.name}"?`)) return;
-      saveCourses(data.filter(c => c.id != delBtn.dataset.delId));
+      await saveCourses(data.filter(c => c.id != delBtn.dataset.delId));
       renderCourses();
     }
   });
 
-  form.addEventListener('submit', e => {
+  form.addEventListener('submit', async e => {
     e.preventDefault();
     const fd   = new FormData(form);
     const data = loadCourses();
@@ -5033,7 +5101,7 @@ function initCoursesMgr() {
     } else {
       data.push(course);
     }
-    saveCourses(data);
+    await saveCourses(data);
     modal.classList.remove('open');
     renderCourses();
   });
