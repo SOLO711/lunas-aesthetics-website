@@ -3832,6 +3832,18 @@ tr.client-blocked td { background: #FFF1F1; }
 
 .bh-note { margin: 0; font-size: 0.78rem; color: var(--text-light); font-style: italic; }
 
+/* Registration needs the student to state a preferred class cycle, so it gets
+   its own call-out. Reads the section's own accent variables rather than fixed
+   colours, so it works in .bh-wrap and in .tt-wrap unchanged. */
+.bh-choose {
+  margin: 0 0 1.4rem; padding: 0.85rem 1rem;
+  border: 1px solid var(--border); border-left: 3px solid var(--bh-ocean);
+  border-radius: var(--radius); background: var(--bh-ocean-soft);
+  font-size: 0.84rem; line-height: 1.6; color: var(--text);
+}
+.bh-choose strong { color: var(--bh-ocean); }
+
+
 .bh-partners {
   margin: 2rem 0 0; padding-top: 1.2rem; border-top: 1px solid var(--border);
   text-align: center; font-size: 0.72rem; letter-spacing: 0.12em;
