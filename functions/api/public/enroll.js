@@ -127,7 +127,9 @@ export async function onRequestPost({ request, env }) {
       full: true,
       course,
       cap: capped.cap,
-      error: 'This course is fully booked — all ' + capped.cap + ' seats have been taken. '
+      // a cap of one is a plausible setting, so do not say "all 1 seats"
+      error: 'This course is fully booked — all '
+         + (capped.cap === 1 ? '1 seat has' : capped.cap + ' seats have') + ' been taken. '
          + 'Your message has still reached us, so get in touch and we will let you know '
          + 'about the next available date.',
     }, 409);

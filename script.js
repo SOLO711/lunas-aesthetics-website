@@ -4756,6 +4756,8 @@ function _showSeatNotice(form, message) {
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// A cap of one is a plausible setting, so never say "all 1 seats".
+const _seatWord = n => (n === 1 ? '1 seat has' : n + ' seats have');
 window._seatsPromise = null;
 function fetchSeats() {
   if (!window._seatsPromise) {
@@ -4800,7 +4802,7 @@ function _seatLookup(seats, name) {
         b.textContent = 'Fully booked';
         el.appendChild(b);
         el.appendChild(document.createTextNode(
-          ' — all ' + s.cap + ' seats have been taken. Get in touch about the next date.'));
+          ' — all ' + _seatWord(s.cap) + ' been taken. Get in touch about the next date.'));
       } else {
         el.appendChild(document.createTextNode('Only '));
         const b = document.createElement('strong');
@@ -4848,8 +4850,8 @@ function _seatLookup(seats, name) {
   fetchSeats().then(seats => {
     const s = _seatLookup(seats, course);
     if (s && s.full) {
-      _showSeatNotice(form, 'This course is fully booked — all ' + s.cap +
-        ' seats have been taken. You are welcome to send your message anyway and we '
+      _showSeatNotice(form, 'This course is fully booked — all ' + _seatWord(s.cap) +
+        ' been taken. You are welcome to send your message anyway and we '
         + 'will let you know about the next available date.');
     }
   });
