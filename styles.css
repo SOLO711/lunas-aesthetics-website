@@ -4024,6 +4024,39 @@ tr.client-blocked td { background: #FFF1F1; }
 .vj-price-note { margin: 0.7rem 0 0; font-size: 0.78rem; color: var(--text-light); }
 .vj-price-note strong { color: var(--bh-ocean); font-weight: 700; }
 
+/* Seat count. Written into the markup stating the cap, then rewritten by
+   fetchSeats() with how many are actually left; if that fetch never lands the
+   page still says something true. .is-low and .is-full are added by that same
+   code. */
+.vj-seats {
+  margin: 0.9rem 0 0; padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border); border-left: 3px solid var(--bh-ocean);
+  border-radius: var(--radius); background: var(--white);
+  font-size: 0.8rem; line-height: 1.5; color: var(--text);
+}
+.vj-seats strong { color: var(--bh-ocean); font-weight: 700; }
+.vj-seats.is-low { border-left-color: #B8860B; background: var(--gold-light); }
+.vj-seats.is-low strong { color: #8A6508; }
+.vj-seats.is-full { border-left-color: #B91C1C; background: #FDF0F0; }
+.vj-seats.is-full strong { color: #B91C1C; }
+
+/* A sold-out enrol button is left in place rather than removed, so the layout
+   does not jump and the course visibly closed rather than vanishing. */
+.btn.is-soldout,
+.btn.is-soldout:hover {
+  background: #E8E2D8; color: #8A7F70; border-color: #D8CFC0;
+  cursor: not-allowed; pointer-events: none; opacity: 1;
+}
+
+/* Shown on the contact page when the chosen course is full - on arrival, and
+   again if the server refuses the enrolment on submit. */
+.seat-notice {
+  display: none; margin: 0 0 1.25rem; padding: 0.9rem 1.1rem;
+  border: 1px solid #E9B8B8; border-left: 3px solid #B91C1C;
+  border-radius: var(--radius); background: #FDF0F0;
+  font-size: 0.86rem; line-height: 1.6; color: #7A1F1F;
+}
+
 .vj-steps { margin-bottom: 1.4rem; }
 .vj-step-list { list-style: none; counter-reset: vjstep; margin: 0; padding: 0; }
 .vj-step-list li {

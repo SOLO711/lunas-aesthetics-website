@@ -2258,12 +2258,13 @@ if (contactForm) {
         );
       } catch (err) { console.error('Contact confirmation email failed:', err); }
     }
+    let enrolFull = null;   // set when the server turns the enrolment away as full
     // If this is a course enrolment, save structured record to Firestore
     if (fd.get('subject') === 'Course Enrollment') {
       // Recorded by the server, which looks up the course fee itself. The browser
       // no longer needs (or receives) the enrolments list.
       try {
-        await fetch(`${_API}/public/enroll`, {
+        const res  = await fetch(`${_API}/public/enroll`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2272,11 +2273,21 @@ if (contactForm) {
             website: fd.get('website') || '',
           }),
         });
+        // The reply used to be thrown away, so a refused enrolment still showed
+        // the student a success message. A full course comes back 409 with
+        // full:true and nothing written - they have to be told.
+        const body = await res.json().catch(() => null);
+        if (body && body.full) enrolFull = body.error;
+        else if (!res.ok) console.error('Course enrolment could not be recorded:', body);
       } catch (err) { console.error('Course enrolment could not be recorded:', err); }
     }
 
     const ok = document.getElementById('contactSuccess');
-    if (ok) { ok.style.display = 'block'; setTimeout(() => ok.style.display = 'none', 6000); }
+    if (enrolFull) {
+      // The message itself did send - the email goes out before this - so the
+      // notice says so rather than reading as a flat failure.
+      _showSeatNotice(contactForm, enrolFull);
+    } else if (ok) { ok.style.display = 'block'; setTimeout(() => ok.style.display = 'none', 6000); }
     contactForm.reset();
     submitBtn.disabled = false;
     submitBtn.textContent = 'Send Message ✉️';
@@ -4715,6 +4726,104 @@ initCoursesMgr();
   }
 })();
 
+/* ── Seat caps on the public pages ─────────────────────────────
+   Fills in how many places are left and closes the enrol buttons once a course
+   is full. Driven by two attributes, so a future capped course needs no new
+   code - only the matching markup:
+     data-seat-status="<exact course name>"  the line that reports what is left
+     data-seat-cta="<exact course name>"     a button that must stop working
+
+   This is presentation only. It is NOT what enforces the cap: a count fetched
+   when the page loaded says nothing about who submitted while the visitor was
+   reading, and anyone can edit a page in their own browser. /api/public/enroll
+   does its own count inside the same read-modify-write that appends the row,
+   and that is the limit. If this fetch fails the markup simply keeps whatever
+   it was written with, which states the cap and nothing untrue. */
+// One notice element, reused. Built with textContent rather than innerHTML
+// because the text comes from the server reply.
+function _showSeatNotice(form, message) {
+  const host = form.closest('.contact-form-panel') || form.parentNode;
+  let el = document.getElementById('seatNotice');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'seatNotice';
+    el.className = 'seat-notice';
+    el.setAttribute('role', 'status');
+    host.insertBefore(el, form);
+  }
+  el.textContent = message;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+window._seatsPromise = null;
+function fetchSeats() {
+  if (!window._seatsPromise) {
+    window._seatsPromise = fetch(`${_API}/public/seats`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => (j && j.ok ? j.seats || {} : null))
+      .catch(() => null);
+  }
+  return window._seatsPromise;
+}
+
+// The server normalises course names before matching; do the same here so a
+// stray double space between the markup and the record does not read as "no cap".
+function _seatLookup(seats, name) {
+  if (!seats) return null;
+  if (seats[name]) return seats[name];
+  const n = String(name || '')
+    .replace(/[‐-―−]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
+  for (const k in seats) {
+    if (String(k).replace(/[‐-―−]/g, '-')
+        .replace(/\s+/g, ' ').trim().toLowerCase() === n) return seats[k];
+  }
+  return null;
+}
+
+(function () {
+  const statusEls = [...document.querySelectorAll('[data-seat-status]')];
+  const ctaEls    = [...document.querySelectorAll('[data-seat-cta]')];
+  if (!statusEls.length && !ctaEls.length) return;
+
+  fetchSeats().then(seats => {
+    if (!seats) return;   // leave the written-in text alone
+
+    statusEls.forEach(el => {
+      const s = _seatLookup(seats, el.getAttribute('data-seat-status'));
+      if (!s) return;
+      el.classList.toggle('is-full', s.full);
+      el.classList.toggle('is-low', !s.full && s.left <= 3);
+      el.textContent = '';
+      if (s.full) {
+        const b = document.createElement('strong');
+        b.textContent = 'Fully booked';
+        el.appendChild(b);
+        el.appendChild(document.createTextNode(
+          ' — all ' + s.cap + ' seats have been taken. Get in touch about the next date.'));
+      } else {
+        el.appendChild(document.createTextNode('Only '));
+        const b = document.createElement('strong');
+        b.textContent = s.cap + ' seats';
+        el.appendChild(b);
+        el.appendChild(document.createTextNode(
+          ' available — ' + s.left + (s.left === 1 ? ' place left.' : ' places left.')));
+      }
+    });
+
+    ctaEls.forEach(el => {
+      const s = _seatLookup(seats, el.getAttribute('data-seat-cta'));
+      if (!s || !s.full) return;
+      // Kept in the page rather than removed, so the layout does not jump and
+      // the visitor can see the course was real and is now closed.
+      el.classList.add('is-soldout');
+      el.setAttribute('aria-disabled', 'true');
+      el.removeAttribute('href');
+      el.textContent = 'Fully Booked';
+    });
+  });
+})();
+
 /* ── Contact page: pre-fill form from ?course= URL param ── */
 (function () {
   const form = document.getElementById('contactForm');
@@ -4733,6 +4842,17 @@ initCoursesMgr();
   }
   const courseRefEl = form.querySelector('[name="courseRef"]');
   if (courseRefEl) courseRefEl.value = course;
+
+  // Tell them before they fill the form in, not after. Only a courtesy - the
+  // server checks again when the form is submitted, which is the real limit.
+  fetchSeats().then(seats => {
+    const s = _seatLookup(seats, course);
+    if (s && s.full) {
+      _showSeatNotice(form, 'This course is fully booked — all ' + s.cap +
+        ' seats have been taken. You are welcome to send your message anyway and we '
+        + 'will let you know about the next available date.');
+    }
+  });
 
   const panel = form.closest('.contact-form-panel');
   if (panel && !panel.querySelector('.course-enrol-banner')) {
@@ -5015,13 +5135,40 @@ function initCoursesMgr() {
 
   const STATUS_LABELS = { active: '🟢 Active', full: '🔴 Full', upcoming: '🟡 Upcoming', inactive: '⚫ Inactive' };
 
+  // How full a capped course is. Counted from the enrolments the panel already
+  // holds, so this costs no extra request. The same rule the server uses:
+  // a cancelled enrolment gives its place back, every other status holds one.
+  // This is a readout, not the limit - /api/public/enroll does its own count
+  // when it writes, which is what actually turns the eleventh student away.
+  const normCourse = t => String(t || '')
+    .replace(/[‐-―−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+  function seatCell(course) {
+    const cap = parseInt(course.seats, 10);
+    if (!(cap > 0)) return '<span style="color:#9CA3AF;">No limit</span>';
+    let taken = 0;
+    try {
+      const key = normCourse(course.name);
+      taken = (getCourseEnrollments() || []).filter(
+        e => e && normCourse(e.course) === key && e.status !== 'cancelled'
+      ).length;
+    } catch (err) { /* enrolments not loaded yet - show the cap alone */ }
+    const left = Math.max(0, cap - taken);
+    const colour = left === 0 ? '#DC2626' : (left <= 3 ? '#F59E0B' : '#10B981');
+    return '<strong style="color:' + colour + ';">' + taken + ' / ' + cap + '</strong>'
+         + '<br><span style="font-size:0.72rem;color:#9CA3AF;">'
+         + (left === 0 ? 'FULL' : left + ' left') + '</span>';
+  }
+
   function renderCourses() {
     const data = loadCourses();
     const q = (search.value || '').toLowerCase();
     tbody.innerHTML = '';
     const filtered = data.filter(c => !q || c.name.toLowerCase().includes(q) || c.level.toLowerCase().includes(q));
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:#9CA3AF;">No courses found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:#9CA3AF;">No courses found.</td></tr>';
       return;
     }
     filtered.forEach(course => {
@@ -5032,6 +5179,7 @@ function initCoursesMgr() {
         <td data-label="Duration">${safe(course.duration)}</td>
         <td data-label="Price">${safe(course.price)}</td>
         <td data-label="Deposit">${course.deposit ? safe(course.deposit) : '—'}</td>
+        <td data-label="Seats">${seatCell(course)}</td>
         <td data-label="Status">${STATUS_LABELS[course.status] || safe(course.status)}</td>
         <td data-label="Actions">
           <button class="btn-admin btn-admin-ghost" style="padding:4px 10px;font-size:0.78rem;" data-edit-id="${safe(course.id)}">Edit</button>
@@ -5057,6 +5205,7 @@ function initCoursesMgr() {
     form.courseDeposit.value  = course.deposit || '';
     form.courseDesc.value     = course.desc || '';
     form.courseStatus.value   = course.status || 'active';
+    form.courseSeats.value    = (course.seats === 0 || course.seats) ? course.seats : '';
     form.courseImage.value    = course.image || '';
     modal.classList.add('open');
   }
@@ -5092,6 +5241,9 @@ function initCoursesMgr() {
       price:    fd.get('coursePrice'),
       deposit:  fd.get('courseDeposit'),
       desc:     fd.get('courseDesc'),
+      // blank means uncapped, so it is stored as '' rather than 0 - 0 would
+      // read as a cap of nothing and turn every student away
+      seats:    (fd.get('courseSeats') || '').trim() === '' ? '' : parseInt(fd.get('courseSeats'), 10),
       image:    fd.get('courseImage') || '',
       status:   fd.get('courseStatus'),
     };

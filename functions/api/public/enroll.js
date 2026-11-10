@@ -92,7 +92,47 @@ export async function onRequestPost({ request, env }) {
     source: 'website',
   };
 
-  const res = await fsMutate(env, 'course_enrollments', list => { list.unshift(enrollment); });
+  // Seat cap. A course with a numeric `seats` takes that many students and no
+  // more; a course without one is uncapped, which is every other course, so
+  // nothing changes for them.
+  //
+  // The count happens INSIDE the mutator on purpose. fsMutate re-reads the
+  // document, applies this callback and writes with an updateTime precondition,
+  // retrying on conflict - so counting here means the tally and the append see
+  // the same snapshot. Checking before the call instead would let two students
+  // submitting at the same moment both read nine taken and both become the
+  // tenth. Returning false makes fsMutate a no-op: nothing is written.
+  const cap = matched ? parseInt(matched.seats, 10) : 0;
+  const capKey = matched ? norm(matched.name) : '';
+  let capped = null;
+
+  const res = await fsMutate(env, 'course_enrollments', list => {
+    if (cap > 0) {
+      // A cancelled enrolment releases its place; pending, confirmed and
+      // completed all hold one.
+      const taken = list.filter(
+        e => e && norm(e.course) === capKey && e.status !== 'cancelled'
+      ).length;
+      if (taken >= cap) { capped = { taken, cap }; return false; }
+    }
+    list.unshift(enrollment);
+  });
+
+  // Refused for being full, not for failing. Said plainly so the form can tell
+  // the student rather than showing them a success message for a seat they did
+  // not get.
+  if (capped) {
+    return json({
+      ok: false,
+      full: true,
+      course,
+      cap: capped.cap,
+      error: 'This course is fully booked — all ' + capped.cap + ' seats have been taken. '
+         + 'Your message has still reached us, so get in touch and we will let you know '
+         + 'about the next available date.',
+    }, 409);
+  }
+
   if (!res.ok) return json({ ok: false, error: 'Unable to record your enrolment right now — please try again.' }, 503);
 
   return json({ ok: true, enrollment });

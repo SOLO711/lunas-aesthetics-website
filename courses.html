@@ -13,7 +13,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
   <meta name="referrer" content="strict-origin-when-cross-origin"/>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%238B4F1C'/><text y='74' x='16' font-size='70' font-family='Georgia,serif' fill='%23C9A84C'>L</text></svg>"/>
-  <link rel="stylesheet" href="styles.css?v=28"/>
+  <link rel="stylesheet" href="styles.css?v=29"/>
 </head>
 <body>
 
@@ -146,6 +146,9 @@
             <span class="vj-price-save">Save TTD 500</span>
           </div>
           <p class="vj-price-note"><strong>TTD 200</strong> down payment secures your seat.</p>
+          <p class="vj-seats" data-seat-status="Advanced Vajacial Training">
+            Only <strong>10 seats</strong> available.
+          </p>
         </div>
       </div>
 
@@ -189,7 +192,7 @@
         <div class="vj-steps">
           <h3 class="bh-sub">How to Register</h3>
           <ol class="vj-step-list">
-            <li>Choose <strong>Advanced Vajacial Training</strong> and press Reserve Your Seat below.</li>
+            <li>Choose <strong>Advanced Vajacial Training</strong> and press Reserve Your Seat below &mdash; there are only 10 places.</li>
             <li>Fill out the registration form with your details.</li>
             <li>Make your <strong>TTD 200</strong> down payment &mdash; we will send you the payment details.</li>
             <li>Your seat is secured and we will confirm your place for 30 November.</li>
@@ -198,7 +201,8 @@
 
         <div class="bh-cta">
           <a href="contact.html?course=Advanced%20Vajacial%20Training"
-             class="btn btn-primary">Reserve Your Seat</a>
+             class="btn btn-primary"
+             data-seat-cta="Advanced Vajacial Training">Reserve Your Seat</a>
           <a href="https://wa.me/18684639306?text=Hi%20Luna%27s%2C%20I%27d%20like%20to%20register%20for%20the%20Advanced%20Vajacial%20Training%20on%2030%20November."
              class="btn bh-btn-alt" target="_blank" rel="noopener">Ask a Question</a>
         </div>
@@ -629,7 +633,7 @@
             <div class="price"><s class="crd-price-was">TTD 1,500</s>TTD 1,000</div>
             <div class="course-deposit-note">Save TTD 500 — 30 November cycle</div>
           </div>
-          <a href="contact.html?course=Advanced+Vajacial+Training" class="btn btn-primary crd-btn">Enrol Now</a>
+          <a href="contact.html?course=Advanced+Vajacial+Training" class="btn btn-primary crd-btn" data-seat-cta="Advanced Vajacial Training">Enrol Now</a>
         </div>
       </div>
 
@@ -1079,6 +1083,6 @@
   </div>
 </footer>
 
-<script src="script.js?v=44"></script>
+<script src="script.js?v=45"></script>
 </body>
 </html>
