@@ -3948,6 +3948,115 @@ tr.client-blocked td { background: #FFF1F1; }
   .tt-plan-rows li { font-size: 0.78rem; }
 }
 
+
+/* ── Advanced Vajacial, dated cycle (courses.html featured section) ──────
+   The third user of the .bh-* layout. Like .tt-wrap it re-tints only the two
+   accent variables that every .bh-* rule already reads, so nothing is
+   duplicated and all three featured sections stay in step; the rose marks the
+   intimate skincare training apart from the gold Trinidad course and the
+   ocean Bahamas one.
+   The additions below are what this flyer needs and the others do not: a
+   portrait flyer standing beside a facts column (both Korean flyers are
+   landscape and run full width), a struck-through promotional price, and the
+   numbered registration steps. */
+.vj-wrap {
+  --bh-ocean: #9C3A55;
+  --bh-ocean-soft: #FBEFF2;
+  border-top-color: #9C3A55;
+}
+
+/* .bh-title em is fixed to the brand brown, which would be invisible against
+   this section’s rose rule; scoped here rather than changed globally so the
+   Bahamas and Trinidad headings are left exactly as they are. */
+.vj-wrap .bh-title em { color: var(--bh-ocean); }
+
+.vj-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 330px) minmax(0, 1fr);
+  gap: 1.75rem;
+  align-items: start;
+  margin-bottom: 1.9rem;
+}
+.vj-flyer {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--white);
+}
+.vj-flyer img { display: block; width: 100%; height: auto; }
+.vj-facts { min-width: 0; }
+
+/* this is the last cycle of the year, which is the whole reason to act now */
+.vj-flag {
+  display: inline-block; margin: 0 0 1rem; padding: 0.4rem 0.85rem;
+  border-radius: 999px; background: var(--bh-ocean); color: var(--white);
+  font-size: 0.66rem; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* .bh-meta is a three-up row at full width; in this narrower column the tiles
+   read better stacked, so they are forced to one per line here. */
+.vj-meta { grid-template-columns: 1fr; gap: 0.5rem; margin-bottom: 1.25rem; }
+.vj-meta .bh-meta-item { display: flex; align-items: baseline; gap: 0.7rem; text-align: left; }
+.vj-meta .bh-meta-label { margin-bottom: 0; flex: 0 0 72px; }
+.vj-meta .bh-meta-sub { margin-top: 0; }
+
+.vj-price {
+  padding: 1.1rem 1.25rem; border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--dark) 0%, #3D2000 55%, var(--pink-dark) 100%);
+}
+.vj-price-label {
+  display: block; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--gold); margin-bottom: 0.4rem;
+}
+.vj-price-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.6rem; }
+.vj-price-was { color: rgba(255,255,255,0.55); font-size: 1rem; }
+.vj-price-now {
+  font-family: var(--font-heading); font-size: 2rem; font-weight: 700;
+  color: var(--white); line-height: 1;
+}
+.vj-price-save {
+  display: inline-block; margin-top: 0.6rem; padding: 0.25rem 0.7rem;
+  border-radius: 999px; background: var(--gold); color: var(--dark);
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.vj-price-note { margin: 0.7rem 0 0; font-size: 0.78rem; color: var(--text-light); }
+.vj-price-note strong { color: var(--bh-ocean); font-weight: 700; }
+
+.vj-steps { margin-bottom: 1.4rem; }
+.vj-step-list { list-style: none; counter-reset: vjstep; margin: 0; padding: 0; }
+.vj-step-list li {
+  counter-increment: vjstep;
+  position: relative; padding: 0.55rem 0 0.55rem 2.3rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.86rem; line-height: 1.6; color: var(--text);
+}
+.vj-step-list li:last-child { border-bottom: none; }
+.vj-step-list li::before {
+  content: counter(vjstep);
+  position: absolute; left: 0; top: 0.5rem;
+  width: 1.5rem; height: 1.5rem; border-radius: 50%;
+  background: var(--bh-ocean); color: var(--white);
+  font-size: 0.7rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* the struck-through old fee on the plain course card further down the page */
+.crd-price-was {
+  color: var(--text-light); font-size: 0.8em; font-weight: 400;
+  margin-right: 0.3rem;
+}
+
+@media (max-width: 820px) {
+  .vj-hero { grid-template-columns: 1fr; gap: 1.4rem; }
+  .vj-flyer { max-width: 340px; margin: 0 auto; }
+}
+@media (max-width: 640px) {
+  .vj-price-now { font-size: 1.7rem; }
+  .vj-step-list li { font-size: 0.8rem; }
+}
+
 /* ── Lunas Holiday Collection (services.html) ────────────────────────────
    Scoped under .hc-* so it cannot affect the ordinary pricing rows. Built
    from the existing brand tokens rather than a new palette, so it reads as

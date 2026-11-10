@@ -13,7 +13,7 @@
   <meta http-equiv="X-Content-Type-Options" content="nosniff"/>
   <meta name="referrer" content="strict-origin-when-cross-origin"/>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%238B4F1C'/><text y='74' x='16' font-size='70' font-family='Georgia,serif' fill='%23C9A84C'>L</text></svg>"/>
-  <link rel="stylesheet" href="styles.css?v=27"/>
+  <link rel="stylesheet" href="styles.css?v=28"/>
 </head>
 <body>
 
@@ -83,6 +83,130 @@
         <!-- Populated dynamically from admin course data -->
       </div>
     </div>
+
+    <!-- ── Featured: Advanced Vajacial, 30 November 2026 cycle ────────────
+         Laid out by hand for the same reason as the two Korean Blueprint
+         sections below: the admin course renderer carries only
+         name/level/duration/price and cannot show a dated cycle, a
+         promotional price or the registration steps.
+         This one differs in that the course is NOT a new record. It is the
+         existing "Advanced Vajacial Training" (id 3), which is ALSO drawn as
+         static card 03 further down this page. Three prices therefore have to
+         move together whenever this changes: the figure below, the one in
+         card 03, and the price on the record itself - /api/public/enroll
+         prices an enrolment by matching the ?course= value against the record
+         name and reading that record's price, so a card that disagrees with
+         the record quotes the student one figure and banks another.
+         data-course-name is belt and braces: id 3 is already in DEFAULT_IDS,
+         but were the record ever re-created through the admin panel it would
+         come back with a timestamp id and renderExtras() would start drawing
+         a duplicate plain card underneath. -->
+    <section class="bh-wrap vj-wrap reveal-up" id="advanced-vajacial"
+             data-course-name="Advanced Vajacial Training">
+      <div class="bh-header">
+        <p class="bh-eyebrow">IPHM Accredited &middot; Chaguanas, Trinidad</p>
+        <h2 class="bh-title">Advanced Vajacial <em>Training</em></h2>
+        <p class="bh-tagline">Take Your Skills to the Next Level</p>
+      </div>
+
+      <div class="vj-hero">
+        <div class="vj-flyer">
+          <img src="advanced-vajacial.jpeg"
+               alt="Advanced Vajacial Training with Luna&rsquo;s Esthetics &amp; Academy &mdash; 30 November 2026, 10AM to 3PM, TTD 1,000"
+               loading="lazy" width="595" height="740"/>
+        </div>
+
+        <div class="vj-facts">
+          <p class="vj-flag">Last cycle for the year</p>
+
+          <div class="bh-meta vj-meta">
+            <div class="bh-meta-item">
+              <span class="bh-meta-label">Date</span>
+              <span class="bh-meta-value">30 November</span>
+              <span class="bh-meta-sub">2026 &mdash; one day</span>
+            </div>
+            <div class="bh-meta-item">
+              <span class="bh-meta-label">Time</span>
+              <span class="bh-meta-value">10AM &ndash; 3PM</span>
+              <span class="bh-meta-sub">5 hours</span>
+            </div>
+            <div class="bh-meta-item">
+              <span class="bh-meta-label">Location</span>
+              <span class="bh-meta-value">Chaguanas</span>
+              <span class="bh-meta-sub">Xavier Street</span>
+            </div>
+          </div>
+
+          <div class="vj-price">
+            <span class="vj-price-label">Course Investment</span>
+            <span class="vj-price-row">
+              <s class="vj-price-was">TTD 1,500</s>
+              <strong class="vj-price-now">TTD 1,000</strong>
+            </span>
+            <span class="vj-price-save">Save TTD 500</span>
+          </div>
+          <p class="vj-price-note"><strong>TTD 200</strong> down payment secures your seat.</p>
+        </div>
+      </div>
+
+      <div class="bh-detail">
+        <p class="bh-intro">
+          Elevate your skills, expand your services and master intimate skincare.
+          This specialised training is designed for beauty professionals and
+          estheticians who want to expand their knowledge and confidently offer
+          professional intimate skincare treatments &mdash; advanced techniques
+          and professional treatment protocols for the concerns clients ask
+          about most: hyperpigmentation, ingrown hairs, uneven skin tone and
+          dehydrated skin.
+        </p>
+
+        <div class="bh-cols">
+          <div class="bh-col">
+            <h3 class="bh-sub">What You&rsquo;ll Learn</h3>
+            <ul class="bh-list">
+              <li><strong>Nanoneedling infusion</strong> &mdash; techniques for enhancing product infusion and supporting skin hydration</li>
+              <li><strong>Microdermabrasion</strong> &mdash; exfoliation techniques and their appropriate application in intimate skincare</li>
+              <li><strong>Intimate brightening</strong> &mdash; professional approaches to improving the appearance of uneven skin tone</li>
+              <li><strong>Hyperpigmentation management</strong> &mdash; treatment approaches for discolouration and post-inflammatory pigmentation</li>
+              <li><strong>Ingrown hair management</strong> &mdash; professional techniques for addressing and preventing ingrown hairs</li>
+              <li><strong>Dehydrated skin</strong> &mdash; understanding and treating dryness while supporting the skin barrier</li>
+              <li><strong>Professional retail products</strong> &mdash; product knowledge and recommendations to help clients maintain their results at home</li>
+            </ul>
+          </div>
+          <div class="bh-col">
+            <h3 class="bh-sub">Your Training Includes</h3>
+            <ul class="bh-list">
+              <li>IPHM accredited certificate on completion</li>
+              <li>Expert-led training with Chel-C Lewis</li>
+              <li>Live demonstration and hands-on practice</li>
+              <li>Professional treatment protocols you can offer straight away</li>
+              <li>Retail product knowledge and client homecare guidance</li>
+              <li>Luna&rsquo;s Esthetics &amp; Academy Ltd., Xavier Street, Chaguanas</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="vj-steps">
+          <h3 class="bh-sub">How to Register</h3>
+          <ol class="vj-step-list">
+            <li>Choose <strong>Advanced Vajacial Training</strong> and press Reserve Your Seat below.</li>
+            <li>Fill out the registration form with your details.</li>
+            <li>Make your <strong>TTD 200</strong> down payment &mdash; we will send you the payment details.</li>
+            <li>Your seat is secured and we will confirm your place for 30 November.</li>
+          </ol>
+        </div>
+
+        <div class="bh-cta">
+          <a href="contact.html?course=Advanced%20Vajacial%20Training"
+             class="btn btn-primary">Reserve Your Seat</a>
+          <a href="https://wa.me/18684639306?text=Hi%20Luna%27s%2C%20I%27d%20like%20to%20register%20for%20the%20Advanced%20Vajacial%20Training%20on%2030%20November."
+             class="btn bh-btn-alt" target="_blank" rel="noopener">Ask a Question</a>
+        </div>
+        <p class="bh-note">Seats are limited and this is the final Advanced Vajacial cycle of the year &mdash; message us if you would like to talk it through before you register.</p>
+      </div>
+
+      <p class="bh-partners">IPHM Accredited &nbsp;&times;&nbsp; Expert-Led Training &nbsp;&times;&nbsp; Certificate Provided</p>
+    </section>
 
     <!-- ── Featured: Trinidad, January 2027 intake ────────────────────────
          Laid out by hand rather than through the admin course renderer, which
@@ -484,9 +608,9 @@
           <h3>Advanced Vajacial Training</h3>
           <p>Master advanced intimate skincare — hyperpigmentation management, corrective protocols, and professional-grade treatment customization to confidently create premium vajacial services.</p>
           <div class="course-meta">
-            <span class="course-meta-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>2 Days</span>
-            <span class="course-meta-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>3 hrs/day</span>
-            <span class="course-meta-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Flexible Schedule</span>
+            <span class="course-meta-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>1 Day</span>
+            <span class="course-meta-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>10AM – 3PM</span>
+            <span class="course-meta-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>30 Nov 2026</span>
           </div>
           <div class="course-includes">
             <h5>What You'll Learn</h5>
@@ -502,7 +626,8 @@
         <div class="course-foot">
           <div class="course-price-block">
             <small>Course Fee</small>
-            <div class="price">TTD 1,500</div>
+            <div class="price"><s class="crd-price-was">TTD 1,500</s>TTD 1,000</div>
+            <div class="course-deposit-note">Save TTD 500 — 30 November cycle</div>
           </div>
           <a href="contact.html?course=Advanced+Vajacial+Training" class="btn btn-primary crd-btn">Enrol Now</a>
         </div>
@@ -954,6 +1079,6 @@
   </div>
 </footer>
 
-<script src="script.js?v=43"></script>
+<script src="script.js?v=44"></script>
 </body>
 </html>
